@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/providers/AuthProvider";
-import { useJobs } from "@/hooks/useJobs";
+import { useAuth } from "@/providers/auth-provider";
+import { useJobs } from "@/hooks/use-jobs";
 import type { Job, JobStatus } from "@/types/job";
 import { ArrowRight, LogOut } from "lucide-react";
 

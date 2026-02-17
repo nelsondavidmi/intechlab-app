@@ -1,0 +1,7 @@
+export { ContactForm } from "./contact-form"
+export { ContactSection } from "./contact-section"
+export { FloatingWhatsapp } from "./floating-whatsapp"
+export { HeroSection } from "./hero-section"
+export { PricingSection } from "./pricing-section"
+export { ServicesSection } from "./services-section"
+export { SiteHeader } from "./site-header"
