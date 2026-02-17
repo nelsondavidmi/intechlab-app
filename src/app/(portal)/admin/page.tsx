@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/providers/AuthProvider";
-import { useJobs } from "@/hooks/useJobs";
+import { useAuth } from "@/providers/auth-provider";
+import { useJobs } from "@/hooks/use-jobs";
 import { createJob } from "@/lib/jobs/mutations";
 import type { NewJobInput } from "@/types/job";
 import { AlertTriangle, CheckCircle2, Loader2, PlusCircle } from "lucide-react";

@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f0ec;
-  --foreground: #1a120b;
-  --accent: #ff735c;
-  --accent-dark: #bf3b2a;
-  --muted: #635b53;
-  --card: #fff7f2;
+  --background: #f4f7fb;
+  --foreground: #0a1428;
+  --accent: #152134;
+  --accent-dark: #0b1524;
+  --muted: #5c647c;
+  --card: #ffffff;
+  --deep: #03081a;
 }
 
 @theme inline {
@@ -25,7 +26,10 @@ body {
 }
 
 .bg-gradient {
-  background-image: radial-gradient(circle at top, #fefcf9 10%, #f7eee7 35%, #f4e4d9 70%);
+  background-image: radial-gradient(circle at 15% 15%, rgba(21, 33, 52, 0.2), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(10, 20, 40, 0.35), transparent 55%),
+    radial-gradient(circle at 60% 80%, rgba(3, 8, 26, 0.2), transparent 65%),
+    var(--background);
 }
 
 .grid-mask {
@@ -44,9 +48,77 @@ body {
 }
 
 .glow {
-  filter: drop-shadow(0 10px 45px rgba(255, 115, 92, 0.35));
+  filter: drop-shadow(0 10px 45px rgba(0, 133, 95, 0.25));
 }
 
 .text-muted {
   color: var(--muted);
+}
+
+.frosted-panel {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(4, 27, 21, 0.07);
+  box-shadow: 0 40px 80px rgba(3, 24, 15, 0.08);
+  backdrop-filter: blur(22px);
+}
+
+.hero-frame {
+  position: relative;
+  border-radius: 40px;
+  background: linear-gradient(135deg, rgba(11, 18, 35, 0.95), rgba(3, 8, 26, 0.85));
+  overflow: hidden;
+  padding: 3px;
+}
+
+.hero-frame::after,
+.hero-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 38px;
+  background: radial-gradient(circle at 25% 25%, rgba(21, 33, 52, 0.35), transparent 60%),
+    radial-gradient(circle at 80% 60%, rgba(255, 255, 255, 0.12), transparent 55%);
+  z-index: 0;
+}
+
+.hero-frame::before {
+  filter: blur(60px);
+  opacity: 0.7;
+}
+
+.hero-frame .hero-inner {
+  position: relative;
+  z-index: 1;
+  border-radius: 37px;
+  padding: 2.5rem;
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35);
+}
+
+.floating-whatsapp {
+  position: fixed;
+  bottom: 32px;
+  left: 32px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: #25d366;
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 15px 35px rgba(4, 27, 21, 0.25);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
