@@ -14,9 +14,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "IntechLab | Laboratorio Dental Digital",
+  title: "intechlab | Estética y Función Dental",
   description:
-    "Landing comercial y portal operativo para coordinar trabajos de laboratorio dental en tiempo real.",
+    "Laboratorio dental boutique que entrega carillas, coronas e implantes con evidencia digital y portal operativo para clínicas.",
+  keywords: [
+    "laboratorio dental",
+    "carillas",
+    "coronas zirconio",
+    "prótesis",
+    "intechlab",
+    "odontología digital",
+  ],
+  openGraph: {
+    title: "intechlab | Estética y Función Dental",
+    description:
+      "Restauraciones premium con control CAD/CAM, evidencia fotográfica y portal para odontólogos.",
+    url: "https://intechlab.com",
+    siteName: "intechlab",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
