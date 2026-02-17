@@ -1,26 +1,52 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f0ec;
+  --foreground: #1a120b;
+  --accent: #ff735c;
+  --accent-dark: #bf3b2a;
+  --muted: #635b53;
+  --card: #fff7f2;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), "Space Grotesk", sans-serif;
+  min-height: 100vh;
+}
+
+.bg-gradient {
+  background-image: radial-gradient(circle at top, #fefcf9 10%, #f7eee7 35%, #f4e4d9 70%);
+}
+
+.grid-mask {
+  position: relative;
+}
+
+.grid-mask::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(transparent 95%, rgba(0, 0, 0, 0.03) 95%),
+    linear-gradient(90deg, transparent 95%, rgba(0, 0, 0, 0.03) 95%);
+  background-size: 40px 40px;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+.glow {
+  filter: drop-shadow(0 10px 45px rgba(255, 115, 92, 0.35));
+}
+
+.text-muted {
+  color: var(--muted);
 }
