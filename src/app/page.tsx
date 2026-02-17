@@ -1,3 +1,4 @@
+import { ContactForm } from "@/components/ContactForm";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -349,40 +350,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-          <form className="rounded-3xl bg-[var(--foreground)]/5 p-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-muted">
-              Escríbenos
-            </p>
-            <div className="mt-4 space-y-4">
-              <label className="block text-sm font-medium text-[var(--foreground)]">
-                Nombre y clínica
-                <input
-                  className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
-                  placeholder="Dra. Sofía - Clínica Atlas"
-                />
-              </label>
-              <label className="block text-sm font-medium text-[var(--foreground)]">
-                Email de contacto
-                <input
-                  className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
-                  placeholder="correo@clinica.com"
-                />
-              </label>
-              <label className="block text-sm font-medium text-[var(--foreground)]">
-                Mensaje
-                <textarea
-                  className="mt-2 min-h-[120px] w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
-                  placeholder="Cuéntanos sobre tu caso"
-                />
-              </label>
-            </div>
-            <button
-              type="button"
-              className="mt-5 w-full rounded-2xl bg-[var(--accent)] py-3 text-base font-semibold text-white"
-            >
-              Enviar solicitud
-            </button>
-          </form>
+          <ContactForm />
         </section>
       </main>
 
