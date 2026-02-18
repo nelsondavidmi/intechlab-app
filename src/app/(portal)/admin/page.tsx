@@ -4,27 +4,63 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { useJobs } from "@/hooks/use-jobs";
+import { useTechnicians } from "@/hooks/use-technicians";
 import { createJob } from "@/lib/jobs/mutations";
 import type { NewJobInput } from "@/types/job";
-import { AlertTriangle, CheckCircle2, Loader2, PlusCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  PlusCircle,
+  UserPlus2,
+  UsersRound,
+} from "lucide-react";
+
+const dateInputValue = (value: Date) => value.toISOString().slice(0, 16);
 
 const defaultJob: NewJobInput = {
   patientName: "",
   treatment: "",
   dentist: "",
-  dueDate: new Date().toISOString().slice(0, 16),
+  arrivalDate: dateInputValue(new Date()),
+  dueDate: dateInputValue(new Date(Date.now() + 2 * 86400000)),
   assignedTo: "",
+  assignedToName: "",
   priority: "media",
   notes: "",
 };
 
+type TechnicianFormState = {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+};
+
+const defaultTechnician: TechnicianFormState = {
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
+};
+
 export default function AdminPage() {
   const router = useRouter();
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, token } = useAuth();
   const { jobs, loading: jobsLoading } = useJobs();
+  const { technicians, loading: techniciansLoading } = useTechnicians();
   const [jobDraft, setJobDraft] = useState(defaultJob);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [technicianDraft, setTechnicianDraft] =
+    useState<TechnicianFormState>(defaultTechnician);
+  const [isSavingTechnician, setIsSavingTechnician] = useState(false);
+  const [technicianMessage, setTechnicianMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
@@ -34,6 +70,19 @@ export default function AdminPage() {
       router.replace("/login");
     }
   }, [loading, router, user]);
+
+  useEffect(() => {
+    const firstWithEmail = technicians.find((tech) => tech.email);
+    if (!firstWithEmail) return;
+    setJobDraft((prev) => {
+      if (prev.assignedTo) return prev;
+      return {
+        ...prev,
+        assignedTo: firstWithEmail.email,
+        assignedToName: firstWithEmail.name,
+      };
+    });
+  }, [technicians]);
 
   if (loading || !user) {
     return (
@@ -66,12 +115,86 @@ export default function AdminPage() {
 
     try {
       await createJob(jobDraft);
-      setJobDraft({ ...defaultJob, dueDate: jobDraft.dueDate });
-      setMessage({ type: "success", text: "Trabajo registrado." });
+      setJobDraft((prev) => ({
+        ...defaultJob,
+        arrivalDate: prev.arrivalDate,
+        dueDate: prev.dueDate,
+        assignedTo: prev.assignedTo,
+        assignedToName: prev.assignedToName,
+      }));
+      setMessage({ type: "success", text: "Caso registrado." });
     } catch (error) {
       setMessage({ type: "error", text: (error as Error).message });
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleTechnicianSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!technicianDraft.email || !technicianDraft.password) {
+      setTechnicianMessage({
+        type: "error",
+        text: "Correo y contraseña temporal son obligatorios.",
+      });
+      return;
+    }
+
+    if (technicianDraft.password !== technicianDraft.confirmPassword) {
+      setTechnicianMessage({
+        type: "error",
+        text: "Las contraseñas no coinciden.",
+      });
+      return;
+    }
+
+    const adminToken = token?.token;
+
+    if (!adminToken) {
+      setTechnicianMessage({
+        type: "error",
+        text: "Sesión inválida. Vuelve a iniciar sesión como administrador.",
+      });
+      return;
+    }
+
+    setIsSavingTechnician(true);
+    setTechnicianMessage(null);
+
+    try {
+      const response = await fetch("/api/technicians", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          name: technicianDraft.name,
+          email: technicianDraft.email,
+          phone: technicianDraft.phone || undefined,
+          password: technicianDraft.password,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ?? "No se pudo registrar al laboratorista.",
+        );
+      }
+
+      const confirmedEmail = technicianDraft.email;
+      setTechnicianDraft(defaultTechnician);
+      setTechnicianMessage({
+        type: "success",
+        text: `Laboratorista registrado. Comparte las credenciales con ${confirmedEmail}.`,
+      });
+    } catch (error) {
+      setTechnicianMessage({ type: "error", text: (error as Error).message });
+    } finally {
+      setIsSavingTechnician(false);
     }
   }
 
@@ -80,10 +203,10 @@ export default function AdminPage() {
       <header className="flex flex-col gap-4 border-b border-black/10 pb-6 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.25em] text-muted">
-            Control diario
+            Seguimiento de casos
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
-            Administración de trabajos
+            Administración de casos
           </h1>
         </div>
         <button
@@ -101,7 +224,7 @@ export default function AdminPage() {
         >
           <div className="flex items-center gap-3">
             <PlusCircle className="size-5 text-[var(--accent)]" />
-            <h2 className="text-xl font-semibold">Crear nuevo trabajo</h2>
+            <h2 className="text-xl font-semibold">Registrar nuevo caso</h2>
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <label className="flex flex-col text-sm font-medium text-muted">
@@ -119,7 +242,7 @@ export default function AdminPage() {
               />
             </label>
             <label className="flex flex-col text-sm font-medium text-muted">
-              Dentista
+              Doctor tratante
               <input
                 className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
                 value={jobDraft.dentist}
@@ -133,7 +256,7 @@ export default function AdminPage() {
               />
             </label>
             <label className="flex flex-col text-sm font-medium text-muted md:col-span-2">
-              Tratamiento
+              Detalle del caso
               <input
                 className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
                 value={jobDraft.treatment}
@@ -147,7 +270,22 @@ export default function AdminPage() {
               />
             </label>
             <label className="flex flex-col text-sm font-medium text-muted">
-              Fecha compromiso
+              Fecha de llegada
+              <input
+                type="datetime-local"
+                className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                value={jobDraft.arrivalDate}
+                onChange={(event) =>
+                  setJobDraft((prev) => ({
+                    ...prev,
+                    arrivalDate: event.target.value,
+                  }))
+                }
+                required
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium text-muted">
+              Fecha de entrega
               <input
                 type="datetime-local"
                 className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
@@ -163,17 +301,47 @@ export default function AdminPage() {
             </label>
             <label className="flex flex-col text-sm font-medium text-muted">
               Técnico asignado
-              <input
-                className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
-                value={jobDraft.assignedTo}
-                onChange={(event) =>
-                  setJobDraft((prev) => ({
-                    ...prev,
-                    assignedTo: event.target.value,
-                  }))
-                }
-                required
-              />
+              {technicians.some((tech) => tech.email) ? (
+                <select
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={jobDraft.assignedTo}
+                  onChange={(event) => {
+                    const nextEmail = event.target.value;
+                    const selected = technicians.find(
+                      (tech) => tech.email === nextEmail,
+                    );
+                    setJobDraft((prev) => ({
+                      ...prev,
+                      assignedTo: nextEmail,
+                      assignedToName: selected?.name ?? "",
+                    }));
+                  }}
+                  required
+                >
+                  {technicians
+                    .filter((tech) => tech.email)
+                    .map((tech) => (
+                      <option key={tech.id} value={tech.email}>
+                        {tech.name} — {tech.email}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <input
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={jobDraft.assignedTo}
+                  type="email"
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({
+                      ...prev,
+                      assignedTo: event.target.value,
+                      assignedToName: "",
+                    }))
+                  }
+                  placeholder="Ingresa el correo del laboratorista"
+                  required
+                />
+              )}
             </label>
             <label className="flex flex-col text-sm font-medium text-muted">
               Prioridad
@@ -232,35 +400,197 @@ export default function AdminPage() {
             ) : (
               <PlusCircle className="size-4" />
             )}
-            {isSaving ? "Guardando" : "Registrar trabajo"}
+            {isSaving ? "Guardando" : "Registrar caso"}
           </button>
         </form>
 
-        <article className="rounded-3xl border border-black/10 bg-white/70 p-6">
-          <p className="text-sm uppercase tracking-[0.3em] text-muted">
-            Estado global
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
-            {jobsLoading
-              ? "Sincronizando..."
-              : `${jobs.length} trabajos activos`}
-          </h3>
-          {!jobsLoading && (
-            <ul className="mt-4 space-y-3 text-sm text-muted">
-              <li>
-                Pendientes:{" "}
-                {jobs.filter((job) => job.status === "pendiente").length}
-              </li>
-              <li>
-                En proceso:{" "}
-                {jobs.filter((job) => job.status === "en-proceso").length}
-              </li>
-              <li>
-                Listos: {jobs.filter((job) => job.status === "listo").length}
-              </li>
-            </ul>
-          )}
-        </article>
+        <div className="space-y-6">
+          <article className="rounded-3xl border border-black/10 bg-white/70 p-6">
+            <p className="text-sm uppercase tracking-[0.3em] text-muted">
+              Estado global
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+              {jobsLoading
+                ? "Sincronizando..."
+                : `${jobs.length} casos activos`}
+            </h3>
+            {!jobsLoading && (
+              <ul className="mt-4 space-y-3 text-sm text-muted">
+                <li>
+                  Pendientes:{" "}
+                  {jobs.filter((job) => job.status === "pendiente").length}
+                </li>
+                <li>
+                  En proceso:{" "}
+                  {jobs.filter((job) => job.status === "en-proceso").length}
+                </li>
+                <li>
+                  Listos: {jobs.filter((job) => job.status === "listo").length}
+                </li>
+              </ul>
+            )}
+          </article>
+
+          <form
+            onSubmit={handleTechnicianSubmit}
+            className="rounded-3xl border border-black/10 bg-white/85 p-6 shadow-[0_15px_45px_rgba(26,18,11,0.08)]"
+          >
+            <div className="flex items-center gap-3">
+              <UserPlus2 className="size-5 text-[var(--accent)]" />
+              <h3 className="text-lg font-semibold">Registrar laboratorista</h3>
+            </div>
+            <div className="mt-4 space-y-4">
+              <label className="flex flex-col text-sm font-medium text-muted">
+                Nombre completo
+                <input
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={technicianDraft.name}
+                  onChange={(event) =>
+                    setTechnicianDraft((prev) => ({
+                      ...prev,
+                      name: event.target.value,
+                    }))
+                  }
+                  placeholder="Ej. Ana Morales"
+                  required
+                />
+              </label>
+              <label className="flex flex-col text-sm font-medium text-muted">
+                Correo electrónico
+                <input
+                  type="email"
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={technicianDraft.email}
+                  onChange={(event) =>
+                    setTechnicianDraft((prev) => ({
+                      ...prev,
+                      email: event.target.value,
+                    }))
+                  }
+                  placeholder="laboratorio@intechlab.com"
+                  required
+                />
+              </label>
+              <label className="flex flex-col text-sm font-medium text-muted">
+                Teléfono / WhatsApp
+                <input
+                  type="tel"
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={technicianDraft.phone}
+                  onChange={(event) =>
+                    setTechnicianDraft((prev) => ({
+                      ...prev,
+                      phone: event.target.value,
+                    }))
+                  }
+                  placeholder="+51 900 000 000"
+                />
+              </label>
+              <label className="flex flex-col text-sm font-medium text-muted">
+                Contraseña temporal
+                <input
+                  type="password"
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={technicianDraft.password}
+                  onChange={(event) =>
+                    setTechnicianDraft((prev) => ({
+                      ...prev,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                />
+              </label>
+              <label className="flex flex-col text-sm font-medium text-muted">
+                Confirmar contraseña
+                <input
+                  type="password"
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={technicianDraft.confirmPassword}
+                  onChange={(event) =>
+                    setTechnicianDraft((prev) => ({
+                      ...prev,
+                      confirmPassword: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+            </div>
+            {technicianMessage && (
+              <p
+                className={`mt-4 inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm ${
+                  technicianMessage.type === "success"
+                    ? "bg-[#e9f6ee] text-[#1f8f58]"
+                    : "bg-[#ffe6e0] text-[#c0392b]"
+                }`}
+              >
+                {technicianMessage.type === "success" ? (
+                  <CheckCircle2 className="size-4" />
+                ) : (
+                  <AlertTriangle className="size-4" />
+                )}
+                {technicianMessage.text}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={isSavingTechnician}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-black/10 px-4 py-3 text-sm font-semibold text-[var(--foreground)] hover:border-black/30 disabled:opacity-60"
+            >
+              {isSavingTechnician ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <UserPlus2 className="size-4" />
+              )}
+              {isSavingTechnician ? "Guardando" : "Guardar laboratorista"}
+            </button>
+          </form>
+
+          <article className="rounded-3xl border border-black/10 bg-white/80 p-6">
+            <div className="flex items-center gap-3">
+              <UsersRound className="size-5 text-[var(--accent-dark)]" />
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-muted">
+                  Equipo registrado
+                </p>
+                <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                  {technicians.length} laboratoristas
+                </h3>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-muted">
+              {techniciansLoading ? (
+                <p>Cargando lista...</p>
+              ) : technicians.length ? (
+                <ul className="space-y-3">
+                  {technicians.map((tech) => (
+                    <li
+                      key={tech.id}
+                      className="rounded-2xl border border-black/5 bg-white/70 px-4 py-3"
+                    >
+                      <p className="font-semibold text-[var(--foreground)]">
+                        {tech.name}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {tech.email ?? "Sin correo registrado"}
+                      </p>
+                      {tech.phone && (
+                        <p className="text-xs text-muted">Tel: {tech.phone}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted">
+                  Aún no registras laboratoristas. Usa el formulario para añadir
+                  el primero.
+                </p>
+              )}
+            </div>
+          </article>
+        </div>
       </section>
     </PortalShell>
   );

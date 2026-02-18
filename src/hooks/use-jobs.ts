@@ -78,8 +78,11 @@ function normalizeJob(id: string, data: DocumentData): Job {
         patientName: data.patientName ?? "Paciente sin nombre",
         treatment: data.treatment ?? "Trabajo sin descripción",
         dentist: data.dentist ?? "",
+        arrivalDate:
+            data.arrivalDate?.toDate?.().toISOString?.() ?? data.arrivalDate ?? "",
         dueDate: data.dueDate?.toDate?.().toISOString?.() ?? data.dueDate ?? "",
         assignedTo: data.assignedTo ?? "",
+        assignedToName: data.assignedToName ?? undefined,
         status: data.status ?? "pendiente",
         priority: data.priority ?? "media",
         notes: data.notes,

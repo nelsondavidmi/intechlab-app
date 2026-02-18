@@ -5,8 +5,10 @@ export interface Job {
     patientName: string;
     treatment: string;
     dentist: string;
+    arrivalDate: string;
     dueDate: string;
     assignedTo: string;
+    assignedToName?: string;
     status: JobStatus;
     priority: "alta" | "media" | "baja";
     notes?: string;
@@ -17,8 +19,10 @@ export interface NewJobInput {
     patientName: string;
     treatment: string;
     dentist: string;
+    arrivalDate: string;
     dueDate: string;
     assignedTo: string;
+    assignedToName?: string;
     priority: "alta" | "media" | "baja";
     notes?: string;
 }

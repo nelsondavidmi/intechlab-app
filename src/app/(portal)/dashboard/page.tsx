@@ -1,26 +1,40 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { useJobs } from "@/hooks/use-jobs";
 import type { Job, JobStatus } from "@/types/job";
-import { ArrowRight, LogOut } from "lucide-react";
+import { updateJobStatus } from "@/lib/jobs/actions";
+import { ArrowRight, Loader2, LogOut } from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading, signOutUser } = useAuth();
-  const {
-    jobs,
-    groupedByStatus,
-    loading: jobsLoading,
-  } = useJobs(user ? { assignedTo: user.displayName ?? undefined } : undefined);
+  const userIdentity = user?.email ?? user?.displayName ?? undefined;
+  const jobFilters = userIdentity ? { assignedTo: userIdentity } : undefined;
+  const { jobs, groupedByStatus, loading: jobsLoading } = useJobs(jobFilters);
+  const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
     }
   }, [loading, router, user]);
+
+  async function handleAdvance(jobId: string, nextStatus: JobStatus) {
+    setUpdatingJobId(jobId);
+    setStatusError(null);
+
+    try {
+      await updateJobStatus(jobId, nextStatus);
+    } catch (error) {
+      setStatusError((error as Error).message);
+    } finally {
+      setUpdatingJobId(null);
+    }
+  }
 
   if (loading || !user) {
     return (
@@ -38,7 +52,7 @@ export default function DashboardPage() {
             Carga personal
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
-            Hola {user.displayName ?? user.email}, estos son tus trabajos.
+            Hola {user.displayName ?? user.email}, estos son tus casos.
           </h1>
           <p className="text-sm text-muted">
             Última actualización:{" "}
@@ -56,6 +70,12 @@ export default function DashboardPage() {
           Salir
         </button>
       </header>
+
+      {statusError && (
+        <p className="mt-4 rounded-2xl bg-[#ffe6e0] px-4 py-3 text-sm text-[#c0392b]">
+          {statusError}
+        </p>
+      )}
 
       <section className="mt-8 grid gap-5 md:grid-cols-2">
         {statusOrder.map((status) => {
@@ -78,7 +98,17 @@ export default function DashboardPage() {
               </header>
               <div className="mt-4 space-y-4">
                 {(jobsLoading ? skeletonJobs : statusJobs).map((job) => (
-                  <JobCard key={job.id} job={job} />
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    canAdvance={
+                      Boolean(userIdentity) &&
+                      job.assignedTo === userIdentity &&
+                      !jobsLoading
+                    }
+                    onAdvance={handleAdvance}
+                    isUpdating={updatingJobId === job.id}
+                  />
                 ))}
               </div>
             </article>
@@ -107,8 +137,21 @@ export default function DashboardPage() {
   );
 }
 
-function JobCard({ job }: { job: Job }) {
+function JobCard({
+  job,
+  canAdvance,
+  onAdvance,
+  isUpdating,
+}: {
+  job: Job;
+  canAdvance: boolean;
+  onAdvance: (jobId: string, nextStatus: JobStatus) => void;
+  isUpdating: boolean;
+}) {
   const badge = statusConfig[job.status];
+  const nextStatus = getNextStatus(job.status);
+  const nextLabel = nextStatus ? statusConfig[nextStatus].label : null;
+  const assignedLabel = job.assignedToName ?? job.assignedTo ?? "Sin asignar";
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
@@ -123,13 +166,36 @@ function JobCard({ job }: { job: Job }) {
         </span>
       </div>
       <p className="text-sm text-muted">{job.treatment}</p>
-      <div className="mt-3 flex items-center justify-between text-sm text-muted">
-        <span>{job.dentist}</span>
-        <span>{formatDate(job.dueDate)}</span>
+      <p className="mt-1 text-sm text-muted">
+        Doctor: {job.dentist || "Sin asignar"}
+      </p>
+      <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-2">
+        <span>F. llegada: {formatDateTime(job.arrivalDate)}</span>
+        <span>Entrega: {formatDateTime(job.dueDate)}</span>
       </div>
       {job.notes && (
         <p className="mt-2 text-sm text-muted">Nota: {job.notes}</p>
       )}
+      <div className="mt-3 flex flex-col gap-2 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+        <span>Asignado a: {assignedLabel}</span>
+        {nextStatus && canAdvance ? (
+          <button
+            type="button"
+            onClick={() => onAdvance(job.id, nextStatus)}
+            disabled={isUpdating}
+            className="inline-flex items-center gap-2 rounded-full border border-black/15 px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:border-black/40 disabled:opacity-60"
+          >
+            {isUpdating ? <Loader2 className="size-3 animate-spin" /> : null}
+            {isUpdating ? "Actualizando" : `Pasar a ${nextLabel}`}
+          </button>
+        ) : (
+          <span className="text-[var(--foreground)]/70">
+            {job.status === "entregado"
+              ? "Caso finalizado"
+              : "Sin permisos para avanzar"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -152,13 +218,21 @@ const statusOrder: JobStatus[] = [
   "entregado",
 ];
 
+function getNextStatus(status: JobStatus): JobStatus | null {
+  const index = statusOrder.indexOf(status);
+  if (index === -1 || index === statusOrder.length - 1) return null;
+  return statusOrder[index + 1];
+}
+
 const skeletonJobs: Job[] = Array.from({ length: 3 }).map((_, index) => ({
   id: `placeholder-${index}`,
   patientName: "Sincronizando...",
   treatment: "",
   dentist: "",
+  arrivalDate: new Date().toISOString(),
   dueDate: new Date().toISOString(),
   assignedTo: "",
+  assignedToName: "",
   status: "pendiente",
   priority: "media",
 }));
@@ -173,7 +247,7 @@ function PortalShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function formatDate(date: string) {
+function formatDateTime(date: string) {
   if (!date) return "Sin fecha";
   return new Intl.DateTimeFormat("es-PE", {
     dateStyle: "medium",
