@@ -39,5 +39,12 @@ export const mockJobs: Job[] = [
         status: "listo",
         priority: "baja",
         notes: "Empaque con kit de mantenimiento",
+        completionEvidence: {
+            note: "Pulido finalizado y empaquetado con sellado térmico.",
+            imageUrl:
+                "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=400&q=80",
+            submittedBy: "diego@intechlab.dev",
+            submittedAt: new Date(Date.now() - 3600000).toISOString(),
+        },
     },
 ];

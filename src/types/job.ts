@@ -1,5 +1,12 @@
 export type JobStatus = "pendiente" | "en-proceso" | "listo" | "entregado";
 
+export interface CompletionEvidence {
+    note: string;
+    imageUrl: string;
+    submittedAt: string;
+    submittedBy: string;
+}
+
 export interface Job {
     id: string;
     patientName: string;
@@ -13,6 +20,7 @@ export interface Job {
     priority: "alta" | "media" | "baja";
     notes?: string;
     createdAt?: string;
+    completionEvidence?: CompletionEvidence;
 }
 
 export interface NewJobInput {

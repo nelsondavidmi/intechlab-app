@@ -10,6 +10,7 @@ const mockTechnicians: Technician[] = [
         id: "lab-tech-001",
         name: "Laboratorista demo",
         email: "demo@intechlab.com",
+        role: "worker",
     },
 ];
 
@@ -48,5 +49,6 @@ function normalizeTechnician(id: string, data: DocumentData): Technician {
         email: data.email ?? "",
         phone: data.phone,
         createdAt: data.createdAt?.toDate?.().toISOString?.() ?? data.createdAt,
+        role: data.role === "admin" ? "admin" : "worker",
     };
 }

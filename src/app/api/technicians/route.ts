@@ -8,6 +8,11 @@ const technicianSchema = z.object({
     email: z.string().email(),
     phone: z.string().optional(),
     password: z.string().min(6),
+    role: z.enum(["admin", "worker"]).default("worker"),
+});
+
+const deleteTechnicianSchema = z.object({
+    uid: z.string().min(1),
 });
 
 export async function POST(request: Request) {
@@ -38,10 +43,15 @@ export async function POST(request: Request) {
             displayName: payload.name,
         });
 
+        await auth.setCustomUserClaims(userRecord.uid, {
+            role: payload.role,
+        });
+
         await db.collection("technicians").doc(userRecord.uid).set({
             name: payload.name,
             email: payload.email,
             phone: payload.phone ?? null,
+            role: payload.role,
             createdAt: FieldValue.serverTimestamp(),
         });
 
@@ -68,5 +78,59 @@ export async function POST(request: Request) {
 
         console.error("Error creando laboratorista:", error);
         return NextResponse.json({ message: "No se pudo registrar al laboratorista." }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: Request) {
+    try {
+        const payload = deleteTechnicianSchema.parse(await request.json());
+
+        const authHeader = request.headers.get("Authorization");
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+        }
+
+        const adminToken = authHeader.split(" ")[1];
+        if (!adminToken) {
+            return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+        }
+
+        const auth = getAdminAuth();
+        const decoded = await auth.verifyIdToken(adminToken).catch(() => null);
+
+        if (!decoded || decoded.role !== "admin") {
+            return NextResponse.json({ message: "Solo administradores pueden eliminar laboratoristas." }, { status: 403 });
+        }
+
+        if (decoded.uid === payload.uid) {
+            return NextResponse.json({ message: "No puedes eliminar tu propia cuenta." }, { status: 400 });
+        }
+
+        const db = getAdminDb();
+
+        await auth.deleteUser(payload.uid).catch((error) => {
+            if (error?.code === "auth/user-not-found") {
+                return;
+            }
+            throw error;
+        });
+
+        await db.collection("technicians").doc(payload.uid).delete().catch(() => undefined);
+
+        return NextResponse.json({ message: "Laboratorista eliminado." }, { status: 200 });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return NextResponse.json({ message: error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 });
+        }
+
+        if (typeof error === "object" && error && "code" in error) {
+            const code = (error as { code: string }).code;
+            if (code === "auth/id-token-expired") {
+                return NextResponse.json({ message: "Tu sesión expiró. Ingresa nuevamente." }, { status: 401 });
+            }
+        }
+
+        console.error("Error eliminando laboratorista:", error);
+        return NextResponse.json({ message: "No se pudo eliminar al laboratorista." }, { status: 500 });
     }
 }

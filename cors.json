@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:3000", "https://intechlab.app"],
+    "method": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "responseHeader": ["Authorization", "Content-Type", "x-goog-meta-*"],
+    "maxAgeSeconds": 3600
+  }
+]

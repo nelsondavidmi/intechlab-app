@@ -73,6 +73,8 @@ export function useJobs(filters?: JobFilters) {
 }
 
 function normalizeJob(id: string, data: DocumentData): Job {
+    const evidence = data.completionEvidence;
+
     return {
         id,
         patientName: data.patientName ?? "Paciente sin nombre",
@@ -87,5 +89,16 @@ function normalizeJob(id: string, data: DocumentData): Job {
         priority: data.priority ?? "media",
         notes: data.notes,
         createdAt: data.createdAt?.toDate?.().toISOString?.() ?? data.createdAt,
+        completionEvidence: evidence
+            ? {
+                note: evidence.note ?? "",
+                imageUrl: evidence.imageUrl ?? "",
+                submittedBy: evidence.submittedBy ?? "",
+                submittedAt:
+                    evidence.submittedAt?.toDate?.().toISOString?.() ??
+                    evidence.submittedAt ??
+                    "",
+            }
+            : undefined,
     };
 }

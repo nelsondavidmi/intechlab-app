@@ -14,6 +14,7 @@ import {
   PlusCircle,
   UserPlus2,
   UsersRound,
+  Trash2,
 } from "lucide-react";
 
 const dateInputValue = (value: Date) => value.toISOString().slice(0, 16);
@@ -36,6 +37,7 @@ type TechnicianFormState = {
   phone: string;
   password: string;
   confirmPassword: string;
+  role: "admin" | "worker";
 };
 
 const defaultTechnician: TechnicianFormState = {
@@ -44,6 +46,7 @@ const defaultTechnician: TechnicianFormState = {
   phone: "",
   password: "",
   confirmPassword: "",
+  role: "worker",
 };
 
 export default function AdminPage() {
@@ -64,6 +67,9 @@ export default function AdminPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [deletingTechnicianId, setDeletingTechnicianId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -174,6 +180,7 @@ export default function AdminPage() {
           email: technicianDraft.email,
           phone: technicianDraft.phone || undefined,
           password: technicianDraft.password,
+          role: technicianDraft.role,
         }),
       });
 
@@ -195,6 +202,60 @@ export default function AdminPage() {
       setTechnicianMessage({ type: "error", text: (error as Error).message });
     } finally {
       setIsSavingTechnician(false);
+    }
+  }
+
+  async function handleDeleteTechnician(technicianId: string) {
+    const target = technicians.find((tech) => tech.id === technicianId);
+    if (!target) return;
+
+    const confirmed = window.confirm(
+      `¿Eliminar a ${target.name} (${target.email})? Esta acción no se puede deshacer.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const adminToken = token?.token;
+
+    if (!adminToken) {
+      setTechnicianMessage({
+        type: "error",
+        text: "Sesión inválida. Vuelve a iniciar sesión como administrador.",
+      });
+      return;
+    }
+
+    setDeletingTechnicianId(technicianId);
+    setTechnicianMessage(null);
+
+    try {
+      const response = await fetch("/api/technicians", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ uid: technicianId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ?? "No se pudo eliminar al laboratorista.",
+        );
+      }
+
+      setTechnicianMessage({
+        type: "success",
+        text: `${target.name} fue eliminado del equipo.`,
+      });
+    } catch (error) {
+      setTechnicianMessage({ type: "error", text: (error as Error).message });
+    } finally {
+      setDeletingTechnicianId(null);
     }
   }
 
@@ -487,6 +548,25 @@ export default function AdminPage() {
                 />
               </label>
               <label className="flex flex-col text-sm font-medium text-muted">
+                Rol en el sistema
+                <select
+                  className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+                  value={technicianDraft.role}
+                  onChange={(event) =>
+                    setTechnicianDraft((prev) => ({
+                      ...prev,
+                      role: event.target.value as TechnicianFormState["role"],
+                    }))
+                  }
+                >
+                  <option value="worker">Laboratorista</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <span className="mt-1 text-xs text-muted">
+                  Los administradores pueden crear casos y gestionar usuarios.
+                </span>
+              </label>
+              <label className="flex flex-col text-sm font-medium text-muted">
                 Contraseña temporal
                 <input
                   type="password"
@@ -570,15 +650,42 @@ export default function AdminPage() {
                       key={tech.id}
                       className="rounded-2xl border border-black/5 bg-white/70 px-4 py-3"
                     >
-                      <p className="font-semibold text-[var(--foreground)]">
-                        {tech.name}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {tech.email ?? "Sin correo registrado"}
-                      </p>
-                      {tech.phone && (
-                        <p className="text-xs text-muted">Tel: {tech.phone}</p>
-                      )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-[var(--foreground)]">
+                            {tech.name}
+                          </p>
+                          <p className="text-xs text-muted">
+                            {tech.email ?? "Sin correo registrado"}
+                          </p>
+                          <p className="text-xs text-muted">
+                            Rol:{" "}
+                            {tech.role === "admin"
+                              ? "Administrador"
+                              : "Laboratorista"}
+                          </p>
+                          {tech.phone && (
+                            <p className="text-xs text-muted">
+                              Tel: {tech.phone}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTechnician(tech.id)}
+                          disabled={deletingTechnicianId === tech.id}
+                          className="inline-flex items-center gap-1 rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:border-[#c0392b] hover:text-[#c0392b] disabled:opacity-60"
+                        >
+                          {deletingTechnicianId === tech.id ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-3" />
+                          )}
+                          {deletingTechnicianId === tech.id
+                            ? "Eliminando"
+                            : "Eliminar"}
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
