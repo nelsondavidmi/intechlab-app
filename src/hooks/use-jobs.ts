@@ -74,6 +74,7 @@ export function useJobs(filters?: JobFilters) {
 
 function normalizeJob(id: string, data: DocumentData): Job {
     const evidence = data.completionEvidence;
+    const delivery = data.deliveryEvidence;
 
     return {
         id,
@@ -98,6 +99,28 @@ function normalizeJob(id: string, data: DocumentData): Job {
                     evidence.submittedAt?.toDate?.().toISOString?.() ??
                     evidence.submittedAt ??
                     "",
+            }
+            : undefined,
+        deliveryEvidence: delivery
+            ? {
+                note: delivery.note ?? undefined,
+                submittedBy: delivery.submittedBy ?? "",
+                submittedAt:
+                    delivery.submittedAt?.toDate?.().toISOString?.() ??
+                    delivery.submittedAt ??
+                    "",
+                attachments: Array.isArray(delivery.attachments)
+                    ? delivery.attachments.map((item: Record<string, unknown>) => ({
+                        fileName: String(item.fileName ?? "archivo"),
+                        downloadUrl: String(item.downloadUrl ?? item.url ?? ""),
+                        uploadedBy: String(item.uploadedBy ?? delivery.submittedBy ?? ""),
+                        uploadedAt:
+                            (item.uploadedAt as { toDate?: () => Date })?.toDate?.()?.toISOString?.() ??
+                            (typeof item.uploadedAt === "string" ? item.uploadedAt : ""),
+                        contentType:
+                            typeof item.contentType === "string" ? item.contentType : undefined,
+                    }))
+                    : [],
             }
             : undefined,
     };

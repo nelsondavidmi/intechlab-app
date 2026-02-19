@@ -7,6 +7,21 @@ export interface CompletionEvidence {
     submittedBy: string;
 }
 
+export interface DeliveryAttachment {
+    fileName: string;
+    downloadUrl: string;
+    uploadedAt: string;
+    uploadedBy: string;
+    contentType?: string;
+}
+
+export interface DeliveryEvidence {
+    note?: string;
+    attachments: DeliveryAttachment[];
+    submittedAt: string;
+    submittedBy: string;
+}
+
 export interface Job {
     id: string;
     patientName: string;
@@ -21,6 +36,7 @@ export interface Job {
     notes?: string;
     createdAt?: string;
     completionEvidence?: CompletionEvidence;
+    deliveryEvidence?: DeliveryEvidence;
 }
 
 export interface NewJobInput {

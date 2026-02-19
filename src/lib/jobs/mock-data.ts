@@ -46,5 +46,19 @@ export const mockJobs: Job[] = [
             submittedBy: "diego@intechlab.dev",
             submittedAt: new Date(Date.now() - 3600000).toISOString(),
         },
+        deliveryEvidence: {
+            note: "Factura y guía adjuntas.",
+            submittedBy: "admin@intechlab.dev",
+            submittedAt: new Date().toISOString(),
+            attachments: [
+                {
+                    fileName: "Factura-4781.pdf",
+                    downloadUrl: "https://example.com/factura.pdf",
+                    uploadedBy: "admin@intechlab.dev",
+                    uploadedAt: new Date().toISOString(),
+                    contentType: "application/pdf",
+                },
+            ],
+        },
     },
 ];

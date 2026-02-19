@@ -19,3 +19,19 @@ export async function updateJobStatus(
         ...extraUpdates,
     });
 }
+
+export async function updateJobAssignment(
+    jobId: string,
+    assignedTo: string,
+    assignedToName?: string
+) {
+    if (!db) {
+        throw new Error("Firebase no está configurado.");
+    }
+
+    const jobRef = doc(db, "jobs", jobId);
+    await updateDoc(jobRef, {
+        assignedTo,
+        assignedToName: assignedToName ?? null,
+    });
+}
