@@ -3,9 +3,19 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase/client";
 import { sanitizeFileName } from "./file";
 
-export async function uploadEvidenceAsset(jobId: string, file: File) {
+export async function uploadEvidenceAsset(
+    jobId: string,
+    file: File,
+    uploadedBy: string,
+) {
     const fileData = await uploadJobFile(jobId, file, "work-evidence");
-    return fileData.downloadUrl;
+    return {
+        fileName: fileData.fileName,
+        downloadUrl: fileData.downloadUrl,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy,
+        contentType: fileData.contentType,
+    };
 }
 
 export async function uploadDeliveryAsset(

@@ -5,7 +5,7 @@ import { ArrowRight, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { JobCard, PortalShell } from "@/components/dashboard";
-import { skeletonJobs, statusOrder } from "@/constants";
+import { JOB_STATUS, skeletonJobs, statusOrder } from "@/constants";
 import { useJobs } from "@/hooks/use-jobs";
 import { useTechnicians } from "@/hooks/use-technicians";
 import { updateJobAssignment, updateJobStatus } from "@/lib/jobs/actions";
@@ -13,6 +13,7 @@ import { useAuth } from "@/providers/auth-provider";
 import type { Job, JobStatus } from "@/types/job";
 import type { DeliveryPayload, EvidencePayload } from "@/types/evidence";
 import { uploadDeliveryAsset, uploadEvidenceAsset } from "@/utils";
+import Image from "next/image";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -41,12 +42,15 @@ export default function DashboardPage() {
   }, [loading, router, user]);
 
   async function handleAdvance(job: Job, nextStatus: JobStatus) {
-    if (job.status === "en-proceso" && nextStatus === "listo") {
+    if (
+      job.status === JOB_STATUS.IN_PROGRESS &&
+      nextStatus === JOB_STATUS.READY
+    ) {
       setStatusError("Debes adjuntar evidencia antes de marcar como listo.");
       return;
     }
 
-    if (nextStatus === "entregado" && !isAdmin) {
+    if (nextStatus === JOB_STATUS.DELIVERED && !isAdmin) {
       setStatusError(
         "Solo un administrador puede marcar el caso como entregado.",
       );
@@ -66,13 +70,15 @@ export default function DashboardPage() {
   }
 
   async function handleSubmitEvidence(job: Job, payload: EvidencePayload) {
-    if (!payload.note.trim()) {
+    const trimmedNote = payload.note.trim();
+
+    if (!trimmedNote) {
       setStatusError("Añade una nota que describa la evidencia.");
       return;
     }
 
-    if (!payload.file) {
-      setStatusError("Selecciona una imagen antes de enviar.");
+    if (!payload.files.length) {
+      setStatusError("Adjunta al menos una imagen antes de enviar.");
       return;
     }
 
@@ -80,12 +86,18 @@ export default function DashboardPage() {
     setStatusError(null);
 
     try {
-      const imageUrl = await uploadEvidenceAsset(job.id, payload.file);
-      await updateJobStatus(job.id, "listo", {
+      const submittedBy = userIdentity ?? job.assignedTo ?? "sin-identidad";
+      const attachments = await Promise.all(
+        payload.files.map((file) =>
+          uploadEvidenceAsset(job.id, file, submittedBy),
+        ),
+      );
+
+      await updateJobStatus(job.id, JOB_STATUS.READY, {
         completionEvidence: {
-          note: payload.note.trim(),
-          imageUrl,
-          submittedBy: userIdentity ?? job.assignedTo ?? "sin-identidad",
+          note: trimmedNote,
+          attachments,
+          submittedBy,
           submittedAt: new Date().toISOString(),
         },
       });
@@ -134,7 +146,7 @@ export default function DashboardPage() {
         deliveryEvidence.note = note;
       }
 
-      await updateJobStatus(job.id, "entregado", {
+      await updateJobStatus(job.id, JOB_STATUS.DELIVERED, {
         deliveryEvidence,
       });
     } catch (error) {
@@ -156,7 +168,7 @@ export default function DashboardPage() {
     setStatusError(null);
 
     try {
-      await updateJobStatus(job.id, "en-proceso");
+      await updateJobStatus(job.id, JOB_STATUS.IN_PROGRESS);
     } catch (error) {
       setStatusError(
         (error as Error).message ?? "No se pudo devolver el caso a proceso.",
@@ -208,21 +220,31 @@ export default function DashboardPage() {
   return (
     <PortalShell>
       <header className="flex flex-col gap-4 border-b border-black/10 pb-6 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.25em] text-muted">
-            Carga personal
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
-            Hola {user.displayName ?? user.email},{" "}
-            {isAdmin ? "estos son todos los casos." : "estos son tus casos."}
-          </h1>
-          <p className="text-sm text-muted">
-            Última actualización:{" "}
-            {new Intl.DateTimeFormat("es-ES", {
-              dateStyle: "full",
-              timeStyle: "short",
-            }).format(new Date())}
-          </p>
+        <div className="flex gap-x-4">
+          <Image
+            src="/intechlab-icon.png"
+            alt="intechlab logo"
+            width={400}
+            height={400}
+            className="h-10 w-auto"
+            priority
+          />
+          <div>
+            <p className="text-sm uppercase tracking-[0.25em] text-muted">
+              Carga personal
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
+              Hola {user.displayName ?? user.email},{" "}
+              {isAdmin ? "estos son todos los casos." : "estos son tus casos."}
+            </h1>
+            <p className="text-sm text-muted">
+              Última actualización:{" "}
+              {new Intl.DateTimeFormat("es-ES", {
+                dateStyle: "full",
+                timeStyle: "short",
+              }).format(new Date())}
+            </p>
+          </div>
         </div>
         {isAdmin && (
           <div className="flex w-full flex-col gap-2 rounded-3xl border border-black/10 bg-white/70 px-4 py-3 text-sm text-muted md:w-auto">
@@ -271,7 +293,7 @@ export default function DashboardPage() {
           return (
             <article
               key={status}
-              className="rounded-3xl border border-black/10 bg-white/90 p-5 shadow-[0_20px_50px_rgba(26,18,11,0.07)]"
+              className="min-w-0 rounded-3xl border border-black/10 bg-white/90 p-5 shadow-[0_20px_50px_rgba(26,18,11,0.07)]"
             >
               <header className="flex items-center justify-between">
                 <div>
@@ -324,7 +346,7 @@ export default function DashboardPage() {
             onClick={() => router.push("/admin")}
             className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white"
           >
-            Ir a administración
+            Ir
             <ArrowRight className="size-4" />
           </button>
         </section>

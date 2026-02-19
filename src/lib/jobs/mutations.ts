@@ -4,6 +4,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { Timestamp } from "firebase/firestore";
 import { z } from "zod";
 import { db } from "@/lib/firebase/client";
+import { JOB_STATUS } from "@/constants/job-status";
 import type { NewJobInput } from "@/types/job";
 
 const newJobSchema = z.object({
@@ -27,7 +28,7 @@ export async function createJob(payload: NewJobInput) {
 
     await addDoc(collection(db, "jobs"), {
         ...data,
-        status: "pendiente",
+        status: JOB_STATUS.PENDING,
         arrivalDate: Timestamp.fromDate(new Date(data.arrivalDate)),
         dueDate: Timestamp.fromDate(new Date(data.dueDate)),
         assignedToName: data.assignedToName ?? null,

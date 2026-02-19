@@ -6,7 +6,7 @@ import { ArrowRight, Loader2, UploadCloud } from "lucide-react";
 import type { Job, JobStatus } from "@/types/job";
 import type { Technician } from "@/types/technician";
 import type { DeliveryPayload, EvidencePayload } from "@/types/evidence";
-import { statusConfig } from "@/constants";
+import { JOB_STATUS, statusConfig } from "@/constants";
 import {
   formatDateTime,
   formatFileSize,
@@ -33,6 +33,8 @@ export type JobCardProps = {
   isUpdating: boolean;
 };
 
+const REASSIGNABLE_STATUSES = new Set<JobStatus>([JOB_STATUS.PENDING]);
+
 export function JobCard({
   job,
   canAdvance,
@@ -46,7 +48,7 @@ export function JobCard({
   isUpdating,
 }: JobCardProps) {
   const [evidenceNote, setEvidenceNote] = useState("");
-  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [deliveryNote, setDeliveryNote] = useState("");
   const [deliveryFiles, setDeliveryFiles] = useState<File[]>([]);
@@ -63,40 +65,40 @@ export function JobCard({
   const nextStatus = getNextStatus(job.status);
   const nextLabel = nextStatus ? statusConfig[nextStatus].label : null;
   const assignedLabel = job.assignedToName ?? job.assignedTo ?? "Sin asignar";
-  const requiresEvidence = job.status === "en-proceso";
-  const awaitingDelivery = nextStatus === "entregado";
-  const requiresDeliveryEvidence = job.status === "listo" && isAdmin;
+  const requiresEvidence = job.status === JOB_STATUS.IN_PROGRESS;
+  const awaitingDelivery = nextStatus === JOB_STATUS.DELIVERED;
+  const requiresDeliveryEvidence = job.status === JOB_STATUS.READY && isAdmin;
   const canAdminDeliver = awaitingDelivery && isAdmin;
-  const canReassign =
-    isAdmin && ["pendiente", "en-proceso"].includes(job.status);
+  const canReassign = isAdmin && REASSIGNABLE_STATUSES.has(job.status);
   const availableTechnicians = technicians.filter((tech) => tech.email);
   const showAdvanceButton =
     Boolean(nextStatus) &&
     !requiresEvidence &&
     !requiresDeliveryEvidence &&
-    job.status === "pendiente" &&
+    job.status === JOB_STATUS.PENDING &&
     canAdvance;
 
   async function submitEvidence() {
     setEvidenceError(null);
+    const trimmedNote = evidenceNote.trim();
 
-    if (!evidenceNote.trim()) {
+    if (!trimmedNote) {
       setEvidenceError("Describe la evidencia en la nota.");
       return;
     }
 
-    if (!evidenceFile) {
-      setEvidenceError("Selecciona una imagen antes de subir.");
+    if (!evidenceFiles.length) {
+      setEvidenceError("Selecciona una o más imágenes antes de subir.");
       return;
     }
 
     try {
       await onSubmitEvidence(job, {
-        note: evidenceNote.trim(),
-        file: evidenceFile,
+        note: trimmedNote,
+        files: evidenceFiles,
       });
       setEvidenceNote("");
-      setEvidenceFile(null);
+      setEvidenceFiles([]);
     } catch (error) {
       setEvidenceError((error as Error).message);
     }
@@ -123,10 +125,10 @@ export function JobCard({
   }
 
   const blockedMessage = (() => {
-    if (job.status === "entregado") return "Caso finalizado";
+    if (job.status === JOB_STATUS.DELIVERED) return "Caso finalizado";
     if (requiresEvidence && !canAdvance)
       return "Solo el asignado puede subir evidencia.";
-    if (job.status === "listo" && !isAdmin)
+    if (job.status === JOB_STATUS.READY && !isAdmin)
       return "Solo un administrador puede entregar.";
     if (requiresDeliveryEvidence)
       return "Adjunta la evidencia final para entregar.";
@@ -160,14 +162,28 @@ export function JobCard({
         <div className="mt-3 rounded-2xl border border-black/10 bg-[#f6f8fb] p-3 text-xs text-[var(--foreground)]">
           <p className="font-semibold">Evidencia cargada</p>
           <p className="mt-1 text-muted">{job.completionEvidence.note}</p>
-          <a
-            href={job.completionEvidence.imageUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-black/15 px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:border-black/40"
-          >
-            <ArrowRight className="size-3" /> Ver imagen
-          </a>
+          {job.completionEvidence.attachments?.length ? (
+            <ul className="mt-2 space-y-1">
+              {job.completionEvidence.attachments.map((attachment) => (
+                <li
+                  key={attachment.downloadUrl}
+                  className="flex items-center gap-2 rounded-xl bg-white/70 px-3 py-1"
+                >
+                  <ArrowRight className="size-3 text-muted" />
+                  <a
+                    href={attachment.downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate text-xs font-semibold text-[var(--foreground)] underline-offset-2 hover:underline"
+                  >
+                    {attachment.fileName}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-muted">Sin archivos adjuntos.</p>
+          )}
           <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-muted">
             Registrado el {formatDateTime(job.completionEvidence.submittedAt)}{" "}
             por {job.completionEvidence.submittedBy || "equipo"}
@@ -264,32 +280,89 @@ export function JobCard({
               rows={3}
             />
             <label className="mt-2 flex cursor-pointer flex-col gap-1 text-[var(--foreground)]">
-              <span className="text-xs font-semibold">Imagen de evidencia</span>
+              <span className="text-xs font-semibold">
+                Imágenes de evidencia
+              </span>
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 className="text-xs"
-                onChange={(event) =>
-                  setEvidenceFile(event.target.files?.[0] ?? null)
-                }
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  setEvidenceFiles((prev) =>
+                    mergeFilesBySignature(prev, files),
+                  );
+                  setEvidenceError(null);
+                }}
               />
             </label>
+            {evidenceFiles.length ? (
+              <ul className="mt-2 space-y-1 text-[var(--foreground)]">
+                {evidenceFiles.map((file, index) => (
+                  <li
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between gap-2 rounded-xl bg-white/70 px-3 py-1"
+                  >
+                    <div className="flex flex-col">
+                      <span className="truncate text-xs font-medium">
+                        {file.name}
+                      </span>
+                      <span className="text-[10px] text-muted">
+                        {formatFileSize(file.size)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEvidenceFiles((prev) =>
+                          prev.filter((_, fileIndex) => fileIndex !== index),
+                        )
+                      }
+                      className="text-[10px] font-semibold text-[#b77516] underline-offset-2 hover:underline"
+                    >
+                      Quitar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-[11px] text-muted">
+                Puedes adjuntar varias imágenes del trabajo finalizado.
+              </p>
+            )}
             {evidenceError ? (
               <p className="mt-2 text-[11px] text-[#c0392b]">{evidenceError}</p>
             ) : null}
-            <button
-              type="button"
-              onClick={submitEvidence}
-              disabled={isUpdating}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-black px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-            >
-              {isUpdating ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <UploadCloud className="size-3" />
-              )}
-              {isUpdating ? "Cargando evidencia" : "Subir y marcar listo"}
-            </button>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={submitEvidence}
+                disabled={isUpdating}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-black px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+              >
+                {isUpdating ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <UploadCloud className="size-3" />
+                )}
+                {isUpdating
+                  ? "Cargando evidencia"
+                  : "Subir archivos y marcar listo"}
+              </button>
+              {evidenceFiles.length ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEvidenceFiles([]);
+                    setEvidenceError(null);
+                  }}
+                  className="inline-flex flex-1 items-center justify-center rounded-full border border-black/15 px-3 py-2 text-xs font-semibold text-[var(--foreground)] hover:border-black/40"
+                >
+                  Limpiar archivos
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : requiresDeliveryEvidence && canAdminDeliver ? (
           <div className="rounded-2xl border border-dashed border-black/20 bg-[#f5f7ee] p-3">

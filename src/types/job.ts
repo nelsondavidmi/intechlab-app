@@ -1,13 +1,8 @@
-export type JobStatus = "pendiente" | "en-proceso" | "listo" | "entregado";
+import { JOB_STATUS } from "@/constants/job-status";
 
-export interface CompletionEvidence {
-    note: string;
-    imageUrl: string;
-    submittedAt: string;
-    submittedBy: string;
-}
+export type JobStatus = (typeof JOB_STATUS)[keyof typeof JOB_STATUS];
 
-export interface DeliveryAttachment {
+export interface EvidenceAttachment {
     fileName: string;
     downloadUrl: string;
     uploadedAt: string;
@@ -15,9 +10,16 @@ export interface DeliveryAttachment {
     contentType?: string;
 }
 
+export interface CompletionEvidence {
+    note: string;
+    attachments: EvidenceAttachment[];
+    submittedAt: string;
+    submittedBy: string;
+}
+
 export interface DeliveryEvidence {
     note?: string;
-    attachments: DeliveryAttachment[];
+    attachments: EvidenceAttachment[];
     submittedAt: string;
     submittedBy: string;
 }

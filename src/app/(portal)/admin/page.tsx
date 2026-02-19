@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { CaseForm, TechnicianForm, TechniciansList } from "@/components/admin";
 import { PortalShell } from "@/components/dashboard";
+import { JOB_STATUS } from "@/constants";
 import { useJobs } from "@/hooks/use-jobs";
 import { useTechnicians } from "@/hooks/use-technicians";
 import { createJob } from "@/lib/jobs/mutations";
@@ -282,14 +283,21 @@ export default function AdminPage() {
               <ul className="mt-4 space-y-3 text-sm text-muted">
                 <li>
                   Pendientes:{" "}
-                  {jobs.filter((job) => job.status === "pendiente").length}
+                  {
+                    jobs.filter((job) => job.status === JOB_STATUS.PENDING)
+                      .length
+                  }
                 </li>
                 <li>
                   En proceso:{" "}
-                  {jobs.filter((job) => job.status === "en-proceso").length}
+                  {
+                    jobs.filter((job) => job.status === JOB_STATUS.IN_PROGRESS)
+                      .length
+                  }
                 </li>
                 <li>
-                  Listos: {jobs.filter((job) => job.status === "listo").length}
+                  Listos:{" "}
+                  {jobs.filter((job) => job.status === JOB_STATUS.READY).length}
                 </li>
               </ul>
             )}

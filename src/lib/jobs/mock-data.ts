@@ -1,3 +1,4 @@
+import { JOB_STATUS } from "@/constants/job-status";
 import type { Job } from "@/types/job";
 
 export const mockJobs: Job[] = [
@@ -10,7 +11,7 @@ export const mockJobs: Job[] = [
         dueDate: new Date().toISOString(),
         assignedTo: "carlos@intechlab.dev",
         assignedToName: "Carlos",
-        status: "en-proceso",
+        status: JOB_STATUS.IN_PROGRESS,
         priority: "alta",
         notes: "Alinear tono con referencia Vita A2",
     },
@@ -23,7 +24,7 @@ export const mockJobs: Job[] = [
         dueDate: new Date(Date.now() + 86400000).toISOString(),
         assignedTo: "ana@intechlab.dev",
         assignedToName: "Ana",
-        status: "pendiente",
+        status: JOB_STATUS.PENDING,
         priority: "media",
         notes: "Enviar foto para aprobación",
     },
@@ -36,15 +37,23 @@ export const mockJobs: Job[] = [
         dueDate: new Date(Date.now() + 2 * 86400000).toISOString(),
         assignedTo: "diego@intechlab.dev",
         assignedToName: "Diego",
-        status: "listo",
+        status: JOB_STATUS.READY,
         priority: "baja",
         notes: "Empaque con kit de mantenimiento",
         completionEvidence: {
             note: "Pulido finalizado y empaquetado con sellado térmico.",
-            imageUrl:
-                "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=400&q=80",
             submittedBy: "diego@intechlab.dev",
             submittedAt: new Date(Date.now() - 3600000).toISOString(),
+            attachments: [
+                {
+                    fileName: "evidencia-1.jpg",
+                    downloadUrl:
+                        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+                    uploadedBy: "diego@intechlab.dev",
+                    uploadedAt: new Date(Date.now() - 3600000).toISOString(),
+                    contentType: "image/jpeg",
+                },
+            ],
         },
         deliveryEvidence: {
             note: "Factura y guía adjuntas.",

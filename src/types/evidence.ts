@@ -1,6 +1,6 @@
 export type EvidencePayload = {
     note: string;
-    file: File | null;
+    files: File[];
 };
 
 export type DeliveryPayload = {
