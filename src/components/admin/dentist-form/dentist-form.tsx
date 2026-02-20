@@ -1,4 +1,4 @@
-import { Loader2, UserPlus2 } from "lucide-react";
+import { Loader2, Stethoscope } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 
 import { FormFeedback, type FormMessage } from "../form-feedback/form-feedback";
@@ -8,39 +8,38 @@ import {
   type PhoneCountryCode,
 } from "@/constants/phone-country";
 
-export type TechnicianFormState = {
+export type DentistFormState = {
   name: string;
   email: string;
   phoneCountry: PhoneCountryCode;
   phoneNumber: string;
   password: string;
   confirmPassword: string;
-  role: "admin" | "worker";
 };
 
-type TechnicianFormProps = {
-  draft: TechnicianFormState;
-  onChange: Dispatch<SetStateAction<TechnicianFormState>>;
+type DentistFormProps = {
+  draft: DentistFormState;
+  onChange: Dispatch<SetStateAction<DentistFormState>>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   isSaving: boolean;
   message: FormMessage;
 };
 
-export function TechnicianForm({
+export function DentistForm({
   draft,
   onChange,
   onSubmit,
   isSaving,
   message,
-}: TechnicianFormProps) {
+}: DentistFormProps) {
   return (
     <form
       onSubmit={onSubmit}
-      className="rounded-3xl border border-black/10 bg-white/85 p-6 shadow-[0_15px_45px_rgba(26,18,11,0.08)]"
+      className="rounded-3xl border border-black/10 bg-white/90 p-6 shadow-[0_15px_45px_rgba(26,18,11,0.08)]"
     >
       <div className="flex items-center gap-3">
-        <UserPlus2 className="size-5 text-[var(--accent)]" />
-        <h3 className="text-lg font-semibold">Registrar laboratorista</h3>
+        <Stethoscope className="size-5 text-[var(--accent)]" />
+        <h3 className="text-lg font-semibold">Registrar doctor</h3>
       </div>
       <div className="mt-4 space-y-4">
         <label className="flex flex-col text-sm font-medium text-muted">
@@ -51,7 +50,7 @@ export function TechnicianForm({
             onChange={(event) =>
               onChange((prev) => ({ ...prev, name: event.target.value }))
             }
-            placeholder="Ej. Ana Morales"
+            placeholder="Ej. Dr. Luis Pérez"
             required
           />
         </label>
@@ -64,7 +63,7 @@ export function TechnicianForm({
             onChange={(event) =>
               onChange((prev) => ({ ...prev, email: event.target.value }))
             }
-            placeholder="laboratorio@intechlab.com"
+            placeholder="doctor@intechlab.com"
             required
           />
         </label>
@@ -88,7 +87,7 @@ export function TechnicianForm({
                   value={option.code}
                   title={`${option.label} (${option.code})`}
                 >
-                  {option.flag ?? option.code}
+                  {option.flag}
                 </option>
               ))}
             </select>
@@ -109,25 +108,6 @@ export function TechnicianForm({
           </div>
           <span className="mt-1 text-xs text-muted">
             Solo números, 10 dígitos.
-          </span>
-        </label>
-        <label className="flex flex-col text-sm font-medium text-muted">
-          Rol en el sistema
-          <select
-            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
-            value={draft.role}
-            onChange={(event) =>
-              onChange((prev) => ({
-                ...prev,
-                role: event.target.value as TechnicianFormState["role"],
-              }))
-            }
-          >
-            <option value="worker">Laboratorista</option>
-            <option value="admin">Administrador</option>
-          </select>
-          <span className="mt-1 text-xs text-muted">
-            Los administradores pueden crear casos y gestionar usuarios.
           </span>
         </label>
         <label className="flex flex-col text-sm font-medium text-muted">
@@ -158,6 +138,10 @@ export function TechnicianForm({
             required
           />
         </label>
+        <p className="text-xs text-muted">
+          Los doctores reciben acceso limitado y se registran con rol "doctor"
+          automáticamente.
+        </p>
       </div>
 
       <FormFeedback message={message} />
@@ -165,14 +149,14 @@ export function TechnicianForm({
       <button
         type="submit"
         disabled={isSaving}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-black/10 px-4 py-3 text-sm font-semibold text-[var(--foreground)] hover:border-black/30 disabled:opacity-60"
+        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-dark)] disabled:opacity-60"
       >
         {isSaving ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (
-          <UserPlus2 className="size-4" />
+          <Stethoscope className="size-4" />
         )}
-        {isSaving ? "Guardando" : "Guardar laboratorista"}
+        {isSaving ? "Guardando" : "Registrar doctor"}
       </button>
     </form>
   );

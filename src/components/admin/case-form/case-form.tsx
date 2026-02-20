@@ -1,14 +1,18 @@
 import { Loader2, PlusCircle } from "lucide-react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 
+import type { Dentist } from "@/types/dentist";
 import type { NewJobInput } from "@/types/job";
 import type { Technician } from "@/types/technician";
+
+import { formatContactLabel } from "@/utils/format-contact-label";
 
 import { FormFeedback, type FormMessage } from "../form-feedback/form-feedback";
 
 type CaseFormProps = {
   jobDraft: NewJobInput;
   technicians: Technician[];
+  dentists: Dentist[];
   onChange: Dispatch<SetStateAction<NewJobInput>>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   isSaving: boolean;
@@ -18,12 +22,22 @@ type CaseFormProps = {
 export function CaseForm({
   jobDraft,
   technicians,
+  dentists,
   onChange,
   onSubmit,
   isSaving,
   message,
 }: CaseFormProps) {
   const hasRegisteredTechnicians = technicians.some((tech) => tech.email);
+  const doctorOptions = dentists.filter(
+    (dentist) => dentist.email || dentist.name,
+  );
+  const hasRegisteredDentists = doctorOptions.length > 0;
+  const selectedDentistId =
+    doctorOptions.find(
+      (dentist) =>
+        formatContactLabel(dentist.name, dentist.email) === jobDraft.dentist,
+    )?.id ?? "";
 
   return (
     <form
@@ -38,7 +52,7 @@ export function CaseForm({
         <label className="flex flex-col text-sm font-medium text-muted">
           Paciente
           <input
-            className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.patientName}
             onChange={(event) =>
               onChange((prev) => ({ ...prev, patientName: event.target.value }))
@@ -48,19 +62,47 @@ export function CaseForm({
         </label>
         <label className="flex flex-col text-sm font-medium text-muted">
           Doctor tratante
-          <input
-            className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
-            value={jobDraft.dentist}
-            onChange={(event) =>
-              onChange((prev) => ({ ...prev, dentist: event.target.value }))
-            }
-            required
-          />
+          {hasRegisteredDentists ? (
+            <select
+              className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+              value={selectedDentistId}
+              onChange={(event) => {
+                const selected = doctorOptions.find(
+                  (dentist) => dentist.id === event.target.value,
+                );
+                onChange((prev) => ({
+                  ...prev,
+                  dentist: selected
+                    ? formatContactLabel(selected.name, selected.email)
+                    : "",
+                }));
+              }}
+              required
+            >
+              <option value="" disabled hidden>
+                Selecciona un doctor
+              </option>
+              {doctorOptions.map((dentist) => (
+                <option key={dentist.id} value={dentist.id}>
+                  {formatContactLabel(dentist.name, dentist.email)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+              value={jobDraft.dentist}
+              onChange={(event) =>
+                onChange((prev) => ({ ...prev, dentist: event.target.value }))
+              }
+              required
+            />
+          )}
         </label>
         <label className="flex flex-col text-sm font-medium text-muted md:col-span-2">
           Detalle del caso
           <input
-            className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.treatment}
             onChange={(event) =>
               onChange((prev) => ({ ...prev, treatment: event.target.value }))
@@ -72,7 +114,7 @@ export function CaseForm({
           Fecha de llegada
           <input
             type="datetime-local"
-            className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.arrivalDate}
             onChange={(event) =>
               onChange((prev) => ({ ...prev, arrivalDate: event.target.value }))
@@ -84,11 +126,12 @@ export function CaseForm({
           Fecha de entrega
           <input
             type="datetime-local"
-            className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.dueDate}
             onChange={(event) =>
               onChange((prev) => ({ ...prev, dueDate: event.target.value }))
             }
+            placeholder="Selecciona fecha y hora"
             required
           />
         </label>
@@ -96,7 +139,7 @@ export function CaseForm({
           Técnico asignado
           {hasRegisteredTechnicians ? (
             <select
-              className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+              className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
               value={jobDraft.assignedTo}
               onChange={(event) => {
                 const nextEmail = event.target.value;
@@ -121,7 +164,7 @@ export function CaseForm({
             </select>
           ) : (
             <input
-              className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+              className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
               value={jobDraft.assignedTo}
               type="email"
               onChange={(event) =>
@@ -139,7 +182,7 @@ export function CaseForm({
         <label className="flex flex-col text-sm font-medium text-muted">
           Prioridad
           <select
-            className="mt-2 rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.priority}
             onChange={(event) =>
               onChange((prev) => ({
@@ -156,7 +199,7 @@ export function CaseForm({
         <label className="flex flex-col text-sm font-medium text-muted md:col-span-2">
           Notas
           <textarea
-            className="mt-2 min-h-[120px] rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 min-h-[120px] w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.notes}
             onChange={(event) =>
               onChange((prev) => ({ ...prev, notes: event.target.value }))

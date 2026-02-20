@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, LogOut } from "lucide-react";
+import { ArrowRight, ChevronDown, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { JobCard, PortalShell } from "@/components/dashboard";
@@ -14,6 +14,13 @@ import type { Job, JobStatus } from "@/types/job";
 import type { DeliveryPayload, EvidencePayload } from "@/types/evidence";
 import { uploadDeliveryAsset, uploadEvidenceAsset } from "@/utils";
 import Image from "next/image";
+
+type SortMode = "dueDate" | "priority";
+
+const sortModeLabels: Record<SortMode, string> = {
+  dueDate: "entrega",
+  priority: "prioridad",
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,6 +41,28 @@ export default function DashboardPage() {
   const { groupedByStatus, loading: jobsLoading } = useJobs(jobFilters);
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [expandedStatuses, setExpandedStatuses] = useState<
+    Record<JobStatus, boolean>
+  >(() =>
+    statusOrder.reduce(
+      (acc, status) => {
+        acc[status] = false;
+        return acc;
+      },
+      {} as Record<JobStatus, boolean>,
+    ),
+  );
+  const [statusSort, setStatusSort] = useState<Record<JobStatus, SortMode>>(
+    () =>
+      statusOrder.reduce(
+        (acc, status) => {
+          acc[status] = "dueDate";
+          return acc;
+        },
+        {} as Record<JobStatus, SortMode>,
+      ),
+  );
+  const [openSortMenu, setOpenSortMenu] = useState<JobStatus | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -209,6 +238,25 @@ export default function DashboardPage() {
     }
   }
 
+  function toggleStatusVisibility(status: JobStatus) {
+    setExpandedStatuses((prev) => ({
+      ...prev,
+      [status]: !prev[status],
+    }));
+  }
+
+  function toggleSortMenu(status: JobStatus) {
+    setOpenSortMenu((prev) => (prev === status ? null : status));
+  }
+
+  function handleSortChange(status: JobStatus, mode: SortMode) {
+    setStatusSort((prev) => ({
+      ...prev,
+      [status]: mode,
+    }));
+    setOpenSortMenu(null);
+  }
+
   if (loading || !user) {
     return (
       <PortalShell>
@@ -290,12 +338,19 @@ export default function DashboardPage() {
       <section className="mt-8 grid gap-5 md:grid-cols-2">
         {statusOrder.map((status) => {
           const statusJobs = groupedByStatus[status];
+          const isExpanded = expandedStatuses[status] ?? false;
+          const sortMode = statusSort[status] ?? "dueDate";
+          const displayJobs = jobsLoading
+            ? skeletonJobs
+            : sortJobsByMode(statusJobs, sortMode);
+          const canToggle = jobsLoading || statusJobs.length > 0;
+          const sortMenuOpen = openSortMenu === status;
           return (
             <article
               key={status}
               className="min-w-0 rounded-3xl border border-black/10 bg-white/90 p-5 shadow-[0_20px_50px_rgba(26,18,11,0.07)]"
             >
-              <header className="flex items-center justify-between">
+              <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.4em] text-muted">
                     {status}
@@ -304,29 +359,80 @@ export default function DashboardPage() {
                     {statusJobs.length} casos
                   </h2>
                 </div>
-                <span className="text-sm text-muted">Ordenado por entrega</span>
+                <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
+                  <div className="relative flex-1 lg:flex-initial">
+                    <button
+                      type="button"
+                      onClick={() => toggleSortMenu(status)}
+                      aria-haspopup="menu"
+                      aria-expanded={sortMenuOpen}
+                      className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-black/10 px-4 py-2 text-sm text-muted transition hover:border-black/30 lg:w-48"
+                    >
+                      Ordenar por {sortModeLabels[sortMode]}
+                      <ChevronDown className="size-4" />
+                    </button>
+                    {sortMenuOpen ? (
+                      <div className="absolute right-0 z-20 mt-2 w-48 rounded-2xl border border-black/10 bg-white py-2 shadow-xl">
+                        {(Object.keys(sortModeLabels) as SortMode[]).map(
+                          (mode) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => handleSortChange(status, mode)}
+                              className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm ${
+                                sortMode === mode
+                                  ? "font-semibold text-[var(--foreground)]"
+                                  : "text-muted"
+                              } hover:bg-black/5`}
+                            >
+                              Ordenar por {sortModeLabels[mode]}
+                              {sortMode === mode ? "·" : null}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => canToggle && toggleStatusVisibility(status)}
+                    aria-expanded={isExpanded}
+                    disabled={!canToggle}
+                    className={`inline-flex size-8 flex-shrink-0 items-center justify-center rounded-full border border-black/10 text-muted transition ${
+                      canToggle ? "hover:border-black/30" : "opacity-40"
+                    }`}
+                  >
+                    <ChevronDown
+                      className={`size-4 transition-transform ${
+                        isExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
               </header>
-              <div className="mt-4 space-y-4">
-                {(jobsLoading ? skeletonJobs : statusJobs).map((job) => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    canAdvance={
-                      Boolean(userIdentity) &&
-                      job.assignedTo === userIdentity &&
-                      !jobsLoading
-                    }
-                    isAdmin={isAdmin}
-                    technicians={technicians}
-                    onAdvance={handleAdvance}
-                    onSubmitEvidence={handleSubmitEvidence}
-                    onSubmitDeliveryEvidence={handleSubmitDeliveryEvidence}
-                    onReturnToProcess={handleReturnToProcess}
-                    onReassignTechnician={handleReassignTechnician}
-                    isUpdating={updatingJobId === job.id}
-                  />
-                ))}
-              </div>
+              {isExpanded && canToggle ? (
+                <div className="mt-4 space-y-4">
+                  {displayJobs.map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      canAdvance={
+                        Boolean(userIdentity) &&
+                        job.assignedTo === userIdentity &&
+                        !jobsLoading
+                      }
+                      isAdmin={isAdmin}
+                      technicians={technicians}
+                      onAdvance={handleAdvance}
+                      onSubmitEvidence={handleSubmitEvidence}
+                      onSubmitDeliveryEvidence={handleSubmitDeliveryEvidence}
+                      onReturnToProcess={handleReturnToProcess}
+                      onReassignTechnician={handleReassignTechnician}
+                      isUpdating={updatingJobId === job.id}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </article>
           );
         })}
@@ -353,4 +459,26 @@ export default function DashboardPage() {
       )}
     </PortalShell>
   );
+}
+
+const priorityOrder: Record<Job["priority"], number> = {
+  alta: 0,
+  media: 1,
+  baja: 2,
+};
+
+function sortJobsByMode(jobs: Job[], mode: SortMode) {
+  const list = [...jobs];
+  if (mode === "priority") {
+    return list.sort(
+      (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority],
+    );
+  }
+
+  return list.sort((a, b) => getTimeValue(a.dueDate) - getTimeValue(b.dueDate));
+}
+
+function getTimeValue(value: string) {
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
 }

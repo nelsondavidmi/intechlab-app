@@ -3,24 +3,46 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { CaseForm, TechnicianForm, TechniciansList } from "@/components/admin";
+import {
+  CaseForm,
+  DentistForm,
+  DentistsList,
+  TechnicianForm,
+  TechniciansList,
+} from "@/components/admin";
 import { PortalShell } from "@/components/dashboard";
 import { JOB_STATUS } from "@/constants";
+import {
+  DEFAULT_PHONE_COUNTRY,
+  PHONE_COUNTRY_DIGITS,
+  PHONE_COUNTRY_LABELS,
+  type PhoneCountryCode,
+} from "@/constants/phone-country";
 import { useJobs } from "@/hooks/use-jobs";
 import { useTechnicians } from "@/hooks/use-technicians";
+import { useDentists } from "@/hooks/use-dentists";
 import { createJob } from "@/lib/jobs/mutations";
 import { useAuth } from "@/providers/auth-provider";
+import { formatContactLabel } from "@/utils/format-contact-label";
 import type { NewJobInput } from "@/types/job";
-import type { FormMessage, TechnicianFormState } from "@/components/admin";
+import type {
+  DentistFormState,
+  FormMessage,
+  TechnicianFormState,
+} from "@/components/admin";
 
-const dateInputValue = (value: Date) => value.toISOString().slice(0, 16);
+const dateInputValue = (value: Date) => {
+  const offsetMinutes = value.getTimezoneOffset();
+  const localTime = new Date(value.getTime() - offsetMinutes * 60000);
+  return localTime.toISOString().slice(0, 16);
+};
 
 const defaultJob: NewJobInput = {
   patientName: "",
   treatment: "",
   dentist: "",
   arrivalDate: dateInputValue(new Date()),
-  dueDate: dateInputValue(new Date(Date.now() + 2 * 86400000)),
+  dueDate: "",
   assignedTo: "",
   assignedToName: "",
   priority: "media",
@@ -30,17 +52,52 @@ const defaultJob: NewJobInput = {
 const defaultTechnician: TechnicianFormState = {
   name: "",
   email: "",
-  phone: "",
+  phoneCountry: DEFAULT_PHONE_COUNTRY,
+  phoneNumber: "",
   password: "",
   confirmPassword: "",
   role: "worker",
 };
+
+const defaultDentist: DentistFormState = {
+  name: "",
+  email: "",
+  phoneCountry: DEFAULT_PHONE_COUNTRY,
+  phoneNumber: "",
+  password: "",
+  confirmPassword: "",
+};
+
+function buildPhoneNumber(
+  country: PhoneCountryCode,
+  digits: string,
+): string | null {
+  const sanitized = digits.replace(/[^\d]/g, "");
+  const expected = PHONE_COUNTRY_DIGITS[country];
+  if (!sanitized || sanitized.length !== expected) {
+    return null;
+  }
+  return `${country} ${sanitized}`;
+}
+
+function phoneErrorMessage(country: PhoneCountryCode) {
+  const label = PHONE_COUNTRY_LABELS[country];
+  const digits = PHONE_COUNTRY_DIGITS[country];
+  return `Ingresa un teléfono válido de ${label} con ${digits} dígitos.`;
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(value: string) {
+  return emailRegex.test(value.trim());
+}
 
 export default function AdminPage() {
   const router = useRouter();
   const { user, loading, isAdmin, token } = useAuth();
   const { jobs, loading: jobsLoading } = useJobs();
   const { technicians, loading: techniciansLoading } = useTechnicians();
+  const { dentists, loading: dentistsLoading } = useDentists();
   const [jobDraft, setJobDraft] = useState(defaultJob);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<FormMessage>(null);
@@ -51,6 +108,13 @@ export default function AdminPage() {
   const [deletingTechnicianId, setDeletingTechnicianId] = useState<
     string | null
   >(null);
+  const [dentistDraft, setDentistDraft] =
+    useState<DentistFormState>(defaultDentist);
+  const [isSavingDentist, setIsSavingDentist] = useState(false);
+  const [dentistMessage, setDentistMessage] = useState<FormMessage>(null);
+  const [deletingDentistId, setDeletingDentistId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!loading && !user) {
@@ -70,6 +134,20 @@ export default function AdminPage() {
       };
     });
   }, [technicians]);
+
+  useEffect(() => {
+    const firstDentist = dentists.find(
+      (dentist) => dentist.email || dentist.name,
+    );
+    if (!firstDentist) return;
+    setJobDraft((prev) => {
+      if (prev.dentist) return prev;
+      return {
+        ...prev,
+        dentist: formatContactLabel(firstDentist.name, firstDentist.email),
+      };
+    });
+  }, [dentists]);
 
   if (loading || !user) {
     return (
@@ -105,9 +183,10 @@ export default function AdminPage() {
       setJobDraft((prev) => ({
         ...defaultJob,
         arrivalDate: prev.arrivalDate,
-        dueDate: prev.dueDate,
+        dueDate: "",
         assignedTo: prev.assignedTo,
         assignedToName: prev.assignedToName,
+        dentist: prev.dentist,
       }));
       setMessage({ type: "success", text: "Caso registrado." });
     } catch (error) {
@@ -128,10 +207,31 @@ export default function AdminPage() {
       return;
     }
 
+    if (!isValidEmail(technicianDraft.email)) {
+      setTechnicianMessage({
+        type: "error",
+        text: "Ingresa un correo electrónico válido.",
+      });
+      return;
+    }
+
     if (technicianDraft.password !== technicianDraft.confirmPassword) {
       setTechnicianMessage({
         type: "error",
         text: "Las contraseñas no coinciden.",
+      });
+      return;
+    }
+
+    const formattedPhone = buildPhoneNumber(
+      technicianDraft.phoneCountry,
+      technicianDraft.phoneNumber,
+    );
+
+    if (!formattedPhone) {
+      setTechnicianMessage({
+        type: "error",
+        text: phoneErrorMessage(technicianDraft.phoneCountry),
       });
       return;
     }
@@ -159,7 +259,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: technicianDraft.name,
           email: technicianDraft.email,
-          phone: technicianDraft.phone || undefined,
+          phone: formattedPhone,
           password: technicianDraft.password,
           role: technicianDraft.role,
         }),
@@ -183,6 +283,93 @@ export default function AdminPage() {
       setTechnicianMessage({ type: "error", text: (error as Error).message });
     } finally {
       setIsSavingTechnician(false);
+    }
+  }
+
+  async function handleDentistSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!dentistDraft.email || !dentistDraft.password) {
+      setDentistMessage({
+        type: "error",
+        text: "Correo y contraseña temporal son obligatorios.",
+      });
+      return;
+    }
+
+    if (!isValidEmail(dentistDraft.email)) {
+      setDentistMessage({
+        type: "error",
+        text: "Ingresa un correo electrónico válido.",
+      });
+      return;
+    }
+
+    if (dentistDraft.password !== dentistDraft.confirmPassword) {
+      setDentistMessage({
+        type: "error",
+        text: "Las contraseñas no coinciden.",
+      });
+      return;
+    }
+
+    const formattedPhone = buildPhoneNumber(
+      dentistDraft.phoneCountry,
+      dentistDraft.phoneNumber,
+    );
+
+    if (!formattedPhone) {
+      setDentistMessage({
+        type: "error",
+        text: phoneErrorMessage(dentistDraft.phoneCountry),
+      });
+      return;
+    }
+
+    const adminToken = token?.token;
+
+    if (!adminToken) {
+      setDentistMessage({
+        type: "error",
+        text: "Sesión inválida. Vuelve a iniciar sesión como administrador.",
+      });
+      return;
+    }
+
+    setIsSavingDentist(true);
+    setDentistMessage(null);
+
+    try {
+      const response = await fetch("/api/dentists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          name: dentistDraft.name,
+          email: dentistDraft.email,
+          phone: formattedPhone,
+          password: dentistDraft.password,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message ?? "No se pudo registrar al doctor.");
+      }
+
+      const confirmedEmail = dentistDraft.email;
+      setDentistDraft(defaultDentist);
+      setDentistMessage({
+        type: "success",
+        text: `Doctor registrado. Comparte las credenciales con ${confirmedEmail}.`,
+      });
+    } catch (error) {
+      setDentistMessage({ type: "error", text: (error as Error).message });
+    } finally {
+      setIsSavingDentist(false);
     }
   }
 
@@ -240,8 +427,64 @@ export default function AdminPage() {
     }
   }
 
+  async function handleDeleteDentist(dentistId: string) {
+    const target = dentists.find((dentist) => dentist.id === dentistId);
+    if (!target) return;
+
+    const confirmed = window.confirm(
+      `¿Eliminar al doctor ${target.name} (${target.email})? Esta acción no se puede deshacer.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const adminToken = token?.token;
+
+    if (!adminToken) {
+      setDentistMessage({
+        type: "error",
+        text: "Sesión inválida. Vuelve a iniciar sesión como administrador.",
+      });
+      return;
+    }
+
+    setDeletingDentistId(dentistId);
+    setDentistMessage(null);
+
+    try {
+      const response = await fetch("/api/dentists", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ uid: dentistId }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message ?? "No se pudo eliminar al doctor.");
+      }
+
+      setDentistMessage({
+        type: "success",
+        text: `${target.name} fue eliminado del equipo médico.`,
+      });
+    } catch (error) {
+      setDentistMessage({ type: "error", text: (error as Error).message });
+    } finally {
+      setDeletingDentistId(null);
+    }
+  }
+
   return (
-    <PortalShell maxWidthClass="max-w-6xl" contentClassName="bg-white/85">
+    <PortalShell
+      maxWidthClass="max-w-6xl"
+      contentClassName="bg-white/85"
+      paddingClass="px-4 py-8 sm:px-6 sm:py-12"
+    >
       <header className="flex flex-col gap-4 border-b border-black/10 pb-6 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.25em] text-muted">
@@ -259,17 +502,20 @@ export default function AdminPage() {
         </button>
       </header>
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <CaseForm
-          jobDraft={jobDraft}
-          technicians={technicians}
-          onChange={setJobDraft}
-          onSubmit={handleSubmit}
-          isSaving={isSaving}
-          message={message}
-        />
+      <section className="mt-8 grid gap-6 lg:[grid-template-columns:minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <CaseForm
+            jobDraft={jobDraft}
+            technicians={technicians}
+            dentists={dentists}
+            onChange={setJobDraft}
+            onSubmit={handleSubmit}
+            isSaving={isSaving}
+            message={message}
+          />
+        </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <article className="rounded-3xl border border-black/10 bg-white/70 p-6">
             <p className="text-sm uppercase tracking-[0.3em] text-muted">
               Estado global
@@ -316,6 +562,21 @@ export default function AdminPage() {
             loading={techniciansLoading}
             deletingId={deletingTechnicianId}
             onDelete={handleDeleteTechnician}
+          />
+
+          <DentistForm
+            draft={dentistDraft}
+            onChange={setDentistDraft}
+            onSubmit={handleDentistSubmit}
+            isSaving={isSavingDentist}
+            message={dentistMessage}
+          />
+
+          <DentistsList
+            dentists={dentists}
+            loading={dentistsLoading}
+            deletingId={deletingDentistId}
+            onDelete={handleDeleteDentist}
           />
         </div>
       </section>

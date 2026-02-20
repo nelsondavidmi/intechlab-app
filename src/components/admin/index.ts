@@ -1,5 +1,8 @@
 export { CaseForm } from "./case-form"
 export { TechnicianForm } from "./technician-form"
 export { TechniciansList } from "./technicians-list"
+export { DentistForm } from "./dentist-form/dentist-form"
+export { DentistsList } from "./dentists-list/dentists-list"
 export type { TechnicianFormState } from "./technician-form"
+export type { DentistFormState } from "./dentist-form/dentist-form"
 export type { FormMessage } from "./form-feedback"

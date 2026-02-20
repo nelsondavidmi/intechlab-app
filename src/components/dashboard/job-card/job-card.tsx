@@ -34,6 +34,26 @@ export type JobCardProps = {
 };
 
 const REASSIGNABLE_STATUSES = new Set<JobStatus>([JOB_STATUS.PENDING]);
+const PRIORITY_STYLES: Record<
+  Job["priority"],
+  { label: string; bg: string; text: string }
+> = {
+  alta: {
+    label: "Alta",
+    bg: "bg-[#ffe6e6]",
+    text: "text-[#c0392b]",
+  },
+  media: {
+    label: "Media",
+    bg: "bg-[#fff4de]",
+    text: "text-[#b77516]",
+  },
+  baja: {
+    label: "Baja",
+    bg: "bg-[#e3f4e7]",
+    text: "text-[#1f8f58]",
+  },
+};
 
 export function JobCard({
   job,
@@ -71,6 +91,7 @@ export function JobCard({
   const canAdminDeliver = awaitingDelivery && isAdmin;
   const canReassign = isAdmin && REASSIGNABLE_STATUSES.has(job.status);
   const availableTechnicians = technicians.filter((tech) => tech.email);
+  const priorityBadge = PRIORITY_STYLES[job.priority];
   const showAdvanceButton =
     Boolean(nextStatus) &&
     !requiresEvidence &&
@@ -158,6 +179,13 @@ export function JobCard({
       {job.notes && (
         <p className="mt-2 text-sm text-muted">Nota: {job.notes}</p>
       )}
+      {priorityBadge ? (
+        <span
+          className={`mt-2 inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold ${priorityBadge.bg} ${priorityBadge.text}`}
+        >
+          Prioridad: {priorityBadge.label}
+        </span>
+      ) : null}
       {job.completionEvidence ? (
         <div className="mt-3 rounded-2xl border border-black/10 bg-[#f6f8fb] p-3 text-xs text-[var(--foreground)]">
           <p className="font-semibold">Evidencia cargada</p>
