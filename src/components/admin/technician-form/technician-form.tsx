@@ -88,7 +88,7 @@ export function TechnicianForm({
                   value={option.code}
                   title={`${option.label} (${option.code})`}
                 >
-                  {option.flag ?? option.code}
+                  {option.flag}
                 </option>
               ))}
             </select>

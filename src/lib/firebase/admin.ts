@@ -7,7 +7,7 @@ import { getFirestore } from "firebase-admin/firestore";
 let adminApp: App | null = null;
 
 function parseServiceAccount(): ServiceAccount {
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    const raw = process.env.SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (raw) {
         try {
             return JSON.parse(raw);
@@ -16,7 +16,7 @@ function parseServiceAccount(): ServiceAccount {
         }
     }
 
-    const filePath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+    const filePath = process.env.SERVICE_ACCOUNT_PATH ?? process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
     if (!filePath) {
         throw new Error("Configura FIREBASE_SERVICE_ACCOUNT_JSON o FIREBASE_SERVICE_ACCOUNT_PATH.");
     }
