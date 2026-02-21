@@ -27,7 +27,10 @@ const services: Service[] = [
 
 export function ServicesSection() {
   return (
-    <section id="servicios" className="mx-auto mt-16 max-w-6xl">
+    <section
+      id="servicios"
+      className="scroll-mt-28 lg:scroll-mt-36 mx-auto mt-16 max-w-6xl"
+    >
       <div className="frosted-panel rounded-[48px] p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>

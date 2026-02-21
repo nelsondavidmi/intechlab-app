@@ -38,7 +38,10 @@ const pricing: Plan[] = [
 
 export function PricingSection() {
   return (
-    <section id="precios" className="mx-auto mt-16 max-w-6xl">
+    <section
+      id="precios"
+      className="scroll-mt-28 lg:scroll-mt-36 mx-auto mt-16 max-w-6xl"
+    >
       <div className="mb-8 flex flex-col gap-3 text-center">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-muted">
           Precios claros

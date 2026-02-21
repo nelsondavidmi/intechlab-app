@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "intechlab | Estética y Función Dental",
   description:
-    "Laboratorio dental boutique que entrega carillas, coronas e implantes con evidencia digital y portal operativo para clínicas.",
+    "Laboratorio dental que entrega carillas, coronas e implantes con evidencia digital y portal operativo para clínicas.",
   keywords: [
     "laboratorio dental",
     "carillas",

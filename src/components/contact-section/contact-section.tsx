@@ -22,23 +22,23 @@ export function ContactSection() {
   return (
     <section
       id="contacto"
-      className="mx-auto mt-16 grid max-w-6xl gap-6 rounded-[48px] border border-black/5 bg-white/80 p-8 lg:grid-cols-[1.1fr_0.9fr]"
+      className="scroll-mt-28 lg:scroll-mt-36 mx-auto mt-16 grid max-w-6xl gap-6 rounded-[48px] border border-black/5 bg-white/80 p-8 lg:grid-cols-[1.1fr_0.9fr]"
     >
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-muted">
           Contáctanos
         </p>
         <h2 className="mt-3 text-3xl font-semibold text-[var(--foreground)]">
-          Programa una demo o agenda tus próximos casos.
+          Agenda tus próximos casos.
         </h2>
         <div className="mt-8 space-y-4 text-base text-muted">
           <p className="flex items-center gap-3">
             <MessageCircle className="size-5 text-[var(--accent)]" />
-            hola@intechlab.com
+            intechlab@outlook.es
           </p>
           <p className="flex items-center gap-3">
             <PhoneIcon />
-            +51 999 123 456
+            +57 310 4413239
           </p>
         </div>
         <div className="mt-8 grid gap-4 text-sm text-muted sm:grid-cols-3">
