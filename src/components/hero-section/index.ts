@@ -1,2 +1,2 @@
 export { HeroSection } from "./hero-section"
-export type { BoardCard, Stat } from "./hero-section.types"
+export type { Stat } from "./hero-section.types"

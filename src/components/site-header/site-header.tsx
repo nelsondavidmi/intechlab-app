@@ -66,12 +66,9 @@ export function SiteHeader() {
           className={`mx-auto max-w-6xl px-6 py-1 transition-transform duration-300 ${isMenuOpen ? "translate-y-0" : "-translate-y-2"}`}
         >
           <div
-            className={`rounded-3xl border border-black/10 bg-white/95 px-5 py-2 shadow-[0_25px_60px_rgba(3,24,15,0.08)] transition-[transform,opacity] duration-300 ${isMenuOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
+            className={`rounded-3xl border border-black/10 bg-white/95 px-5 py-4 shadow-[0_25px_60px_rgba(3,24,15,0.08)] transition-[transform,opacity] duration-300 ${isMenuOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
           >
-            <p className="text-xs uppercase tracking-[0.4em] text-muted pt-4">
-              Conoce más
-            </p>
-            <div className="mt-4 flex flex-col divide-y divide-black/5 text-base font-semibold text-[var(--foreground)]">
+            <div className="flex flex-col divide-y divide-black/5 text-base font-semibold text-[var(--foreground)]">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}

@@ -79,7 +79,7 @@ export function HeroSection() {
       <div className="flex-1">
         <div className="hero-frame">
           <div className="hero-inner space-y-4 text-[var(--foreground)]">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-4">
               {galleryImages.map((item) => (
                 <figure
                   key={item.id}
@@ -91,7 +91,7 @@ export function HeroSection() {
                     loading="lazy"
                     className="h-full w-full object-cover transition duration-500 hover:scale-105"
                   />
-                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-4 pt-10 text-xs font-semibold uppercase tracking-[0.3em] text-white">
+                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-8 text-[0.5rem] font-semibold uppercase leading-snug tracking-[0.08em] text-white whitespace-normal break-words sm:px-4 sm:pb-4 sm:pt-10 sm:text-[0.7rem] sm:tracking-[0.2em]">
                     {item.caption}
                   </figcaption>
                 </figure>
