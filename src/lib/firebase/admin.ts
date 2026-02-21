@@ -1,5 +1,5 @@
-import { readFileSync } from "fs";
-import path from "path";
+import 'server-only'
+
 import { cert, getApps, initializeApp, type App, type ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -16,18 +16,7 @@ function parseServiceAccount(): ServiceAccount {
         }
     }
 
-    const filePath = process.env.SERVICE_ACCOUNT_PATH ?? process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-    if (!filePath) {
-        throw new Error("Configura FIREBASE_SERVICE_ACCOUNT_JSON o FIREBASE_SERVICE_ACCOUNT_PATH.");
-    }
-
-    try {
-        const resolvedPath = path.resolve(process.cwd(), filePath);
-        const contents = readFileSync(resolvedPath, "utf-8");
-        return JSON.parse(contents);
-    } catch (error) {
-        throw new Error(`No se pudo leer el archivo del service account: ${error}`);
-    }
+    throw new Error("Define SERVICE_ACCOUNT_JSON para inicializar Firebase Admin.");
 }
 
 function getOrInitAdminApp(): App {
