@@ -3,130 +3,42 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Download } from "lucide-react";
-
 import {
+  AdminSummaryPanel,
+  AdminTabsNav,
   CaseForm,
   DentistForm,
   DentistsList,
   TechnicianForm,
   TechniciansList,
 } from "@/components/admin";
+import type { FormMessage } from "@/components/admin";
 import { PortalShell, VerifySession } from "@/components/dashboard";
-import { JOB_STATUS, statusConfig } from "@/constants";
-import {
-  DEFAULT_PHONE_COUNTRY,
-  PHONE_COUNTRY_DIGITS,
-  PHONE_COUNTRY_LABELS,
-  type PhoneCountryCode,
-} from "@/constants/phone-country";
+import { JOB_STATUS } from "@/constants";
 import { useJobs } from "@/hooks/use-jobs";
 import { useTechnicians } from "@/hooks/use-technicians";
 import { useDentists } from "@/hooks/use-dentists";
 import { createJob } from "@/lib/jobs/mutations";
 import { useAuth } from "@/providers/auth-provider";
 import { formatContactLabel } from "@/utils/format-contact-label";
-import { formatDateTime } from "@/utils/formatters";
-import type { NewJobInput } from "@/types/job";
-import type {
-  DentistFormState,
-  FormMessage,
-  TechnicianFormState,
-} from "@/components/admin";
 
-type AdminTab = "cases" | "technicians" | "dentists";
-type ExportScope = "cases" | "technicians" | "dentists";
-
-const adminTabs: Array<{
-  id: AdminTab;
-  label: string;
-  description: string;
-}> = [
-  {
-    id: "cases",
-    label: "Casos",
-    description: "Registro y estado global",
-  },
-  {
-    id: "technicians",
-    label: "Laboratoristas",
-    description: "Registro y equipo registrado",
-  },
-  {
-    id: "dentists",
-    label: "Doctores",
-    description: "Registro y equipo médico",
-  },
-];
-
-const exportPalette = {
-  dark: "FF0B0D13",
-  muted: "FF7A869A",
-  border: "FFE5E7EB",
-  light: "FFFDFCFB",
-  stripe: "FFF8F7FC",
-} as const;
-
-const dateInputValue = (value: Date) => {
-  const offsetMinutes = value.getTimezoneOffset();
-  const localTime = new Date(value.getTime() - offsetMinutes * 60000);
-  return localTime.toISOString().slice(0, 16);
-};
-
-const defaultJob: NewJobInput = {
-  patientName: "",
-  treatment: "",
-  dentist: "",
-  arrivalDate: dateInputValue(new Date()),
-  dueDate: "",
-  assignedTo: "",
-  assignedToName: "",
-  priority: "media",
-  notes: "",
-};
-
-const defaultTechnician: TechnicianFormState = {
-  name: "",
-  email: "",
-  phoneCountry: DEFAULT_PHONE_COUNTRY,
-  phoneNumber: "",
-  password: "",
-  confirmPassword: "",
-  role: "worker",
-};
-
-const defaultDentist: DentistFormState = {
-  name: "",
-  email: "",
-  phoneCountry: DEFAULT_PHONE_COUNTRY,
-  phoneNumber: "",
-  password: "",
-  confirmPassword: "",
-};
-
-function buildPhoneNumber(
-  country: PhoneCountryCode,
-  digits: string,
-): string | null {
-  const sanitized = digits.replace(/[^\d]/g, "");
-  const expected = PHONE_COUNTRY_DIGITS[country];
-  if (!sanitized || sanitized.length !== expected) {
-    return null;
-  }
-  return `${country} ${sanitized}`;
-}
-
-function phoneErrorMessage(country: PhoneCountryCode) {
-  const label = PHONE_COUNTRY_LABELS[country];
-  const digits = PHONE_COUNTRY_DIGITS[country];
-  return `Ingresa un teléfono válido de ${label} con ${digits} dígitos.`;
-}
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function isValidEmail(value: string) {
-  return emailRegex.test(value.trim());
-}
+import {
+  ADMIN_TABS,
+  DEFAULT_DENTIST,
+  DEFAULT_JOB,
+  DEFAULT_TECHNICIAN,
+} from "./admin.constants";
+import {
+  exportCasesReport,
+  exportDentistsDirectory,
+  exportTechniciansDirectory,
+} from "./admin-exporters";
+import type { AdminTab, ExportScope, StatusSummary } from "./admin.types";
+import {
+  buildPhoneNumber,
+  isValidEmail,
+  phoneErrorMessage,
+} from "./admin.utils";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -134,19 +46,17 @@ export default function AdminPage() {
   const { jobs, loading: jobsLoading } = useJobs();
   const { technicians, loading: techniciansLoading } = useTechnicians();
   const { dentists, loading: dentistsLoading } = useDentists();
-  const [jobDraft, setJobDraft] = useState(defaultJob);
+  const [jobDraft, setJobDraft] = useState(DEFAULT_JOB);
   const [activeTab, setActiveTab] = useState<AdminTab>("cases");
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<FormMessage>(null);
-  const [technicianDraft, setTechnicianDraft] =
-    useState<TechnicianFormState>(defaultTechnician);
+  const [technicianDraft, setTechnicianDraft] = useState(DEFAULT_TECHNICIAN);
   const [isSavingTechnician, setIsSavingTechnician] = useState(false);
   const [technicianMessage, setTechnicianMessage] = useState<FormMessage>(null);
   const [deletingTechnicianId, setDeletingTechnicianId] = useState<
     string | null
   >(null);
-  const [dentistDraft, setDentistDraft] =
-    useState<DentistFormState>(defaultDentist);
+  const [dentistDraft, setDentistDraft] = useState(DEFAULT_DENTIST);
   const [isSavingDentist, setIsSavingDentist] = useState(false);
   const [dentistMessage, setDentistMessage] = useState<FormMessage>(null);
   const [deletingDentistId, setDeletingDentistId] = useState<string | null>(
@@ -159,7 +69,7 @@ export default function AdminPage() {
     scope: ExportScope;
     message: Exclude<FormMessage, null>;
   } | null>(null);
-  const statusSummary = useMemo(() => {
+  const statusSummary = useMemo<StatusSummary>(() => {
     const summary = {
       total: jobs.length,
       pending: 0,
@@ -256,210 +166,7 @@ export default function AdminPage() {
     setExportFeedback(null);
 
     try {
-      const XLSXModule = await import("xlsx-js-style");
-      const XLSX = XLSXModule.default ?? XLSXModule;
-      const workbook = XLSX.utils.book_new();
-      const generatedAt = new Date();
-
-      const columnsCount = 8;
-      const columnWidths = [28, 26, 26, 14, 16, 22, 22, 40];
-      const headerLabels = [
-        "Paciente",
-        "Doctor tratante",
-        "Laboratorista asignado",
-        "Prioridad",
-        "Estado",
-        "Fecha de llegada",
-        "Fecha de entrega",
-        "Notas",
-      ];
-      const brand = exportPalette;
-
-      const fillerRow = Array(columnsCount - 1).fill(null);
-      const rows: Array<Array<string | null>> = [
-        ["Reporte global de casos", ...fillerRow],
-        [
-          `Generado el ${new Intl.DateTimeFormat("es-PE", {
-            dateStyle: "long",
-            timeStyle: "short",
-          }).format(generatedAt)}`,
-          ...fillerRow,
-        ],
-        Array(columnsCount).fill(null),
-        Array(columnsCount).fill(null),
-        Array(columnsCount).fill(null),
-        headerLabels,
-      ];
-
-      const sheet = XLSX.utils.aoa_to_sheet(rows);
-      sheet["!cols"] = columnWidths.map((wch) => ({ wch }));
-      sheet["!rows"] = [
-        { hpt: 34 },
-        { hpt: 20 },
-        { hpt: 70 },
-        { hpt: 70 },
-        { hpt: 16 },
-        { hpt: 26 },
-      ];
-      sheet["!merges"] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: columnsCount - 1 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: columnsCount - 1 } },
-        { s: { r: 2, c: 0 }, e: { r: 3, c: 1 } },
-        { s: { r: 2, c: 2 }, e: { r: 3, c: 3 } },
-        { s: { r: 2, c: 4 }, e: { r: 3, c: 5 } },
-        { s: { r: 2, c: 6 }, e: { r: 3, c: 7 } },
-      ];
-
-      const borderStyle = {
-        top: { style: "thin", color: { rgb: brand.border } },
-        bottom: { style: "thin", color: { rgb: brand.border } },
-        left: { style: "thin", color: { rgb: brand.border } },
-        right: { style: "thin", color: { rgb: brand.border } },
-      } as const;
-
-      const titleCell = sheet["A1"];
-      if (titleCell) {
-        titleCell.s = {
-          font: { sz: 18, bold: true, color: { rgb: brand.dark } },
-          alignment: { horizontal: "center", vertical: "center" },
-          fill: { patternType: "solid", fgColor: { rgb: brand.light } },
-          border: borderStyle,
-        };
-      }
-      const subtitleCell = sheet["A2"];
-      if (subtitleCell) {
-        subtitleCell.s = {
-          font: { sz: 12, color: { rgb: brand.muted } },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: {
-            bottom: borderStyle.bottom,
-            left: borderStyle.left,
-            right: borderStyle.right,
-          },
-        };
-      }
-
-      const summaryBlocks = [
-        { label: "Pendientes", value: statusSummary.pending, fill: "FFFDF4E3" },
-        {
-          label: "En proceso",
-          value: statusSummary.inProgress,
-          fill: "FFEFF5FF",
-        },
-        { label: "Listos", value: statusSummary.ready, fill: "FFEFFAF3" },
-        {
-          label: "Entregados",
-          value: statusSummary.delivered,
-          fill: "FFF6F1FF",
-        },
-      ] as const;
-      const summaryRowTop = 2;
-      summaryBlocks.forEach((block, index) => {
-        const colStart = index * 2;
-        const cellRef = XLSX.utils.encode_cell({
-          r: summaryRowTop,
-          c: colStart,
-        });
-        const cell = sheet[cellRef] ?? { t: "s", v: "" };
-        cell.v = `${block.label.toUpperCase()}\n${block.value}`;
-        cell.s = {
-          font: { sz: 12, bold: true, color: { rgb: brand.dark } },
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: true,
-          },
-          fill: { patternType: "solid", fgColor: { rgb: block.fill } },
-          border: borderStyle,
-        };
-        sheet[cellRef] = cell;
-      });
-
-      const headerRowIndex = 5;
-      headerLabels.forEach((_, columnIndex) => {
-        const cellRef = XLSX.utils.encode_cell({
-          r: headerRowIndex,
-          c: columnIndex,
-        });
-        const cell = sheet[cellRef];
-        if (!cell) return;
-        cell.s = {
-          font: { bold: true, color: { rgb: "FFFFFFFF" } },
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: true,
-          },
-          fill: { patternType: "solid", fgColor: { rgb: brand.dark } },
-          border: borderStyle,
-        };
-      });
-
-      const priorityLabels: Record<NewJobInput["priority"], string> = {
-        alta: "Alta",
-        media: "Media",
-        baja: "Baja",
-      };
-
-      const dataRows = jobs.map((job) => [
-        job.patientName,
-        job.dentist || "Sin asignar",
-        job.assignedToName || job.assignedTo || "Sin asignar",
-        priorityLabels[job.priority],
-        statusConfig[job.status]?.label ?? job.status,
-        job.arrivalDate ? formatDateTime(job.arrivalDate) : "Sin fecha",
-        job.dueDate ? formatDateTime(job.dueDate) : "Sin fecha",
-        job.notes || "—",
-      ]);
-      if (dataRows.length) {
-        XLSX.utils.sheet_add_aoa(sheet, dataRows, { origin: -1 });
-      }
-
-      const firstDataRowIndex = headerRowIndex + 1;
-      dataRows.forEach((_, rowOffset) => {
-        const rowIndex = firstDataRowIndex + rowOffset;
-        const isStriped = rowOffset % 2 === 1;
-        headerLabels.forEach((_, columnIndex) => {
-          const cellRef = XLSX.utils.encode_cell({
-            r: rowIndex,
-            c: columnIndex,
-          });
-          const cell = sheet[cellRef];
-          if (!cell) return;
-          cell.s = {
-            font: { color: { rgb: brand.dark } },
-            alignment: {
-              vertical: "center",
-              horizontal:
-                columnIndex >= 4 && columnIndex <= 6 ? "center" : "left",
-              wrapText: columnIndex === 7,
-            },
-            fill: isStriped
-              ? { patternType: "solid", fgColor: { rgb: brand.stripe } }
-              : undefined,
-            border: borderStyle,
-          };
-        });
-      });
-
-      const headerRowNumber = headerRowIndex + 1;
-      const totalRowCount = headerRowNumber + dataRows.length;
-      sheet["!autofilter"] = {
-        ref: `A${headerRowNumber}:H${totalRowCount || headerRowNumber}`,
-      };
-
-      XLSX.utils.book_append_sheet(workbook, sheet, "Casos");
-      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `intechlab-casos-${generatedAt.toISOString().slice(0, 10)}.xlsx`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-
+      await exportCasesReport(jobs, statusSummary);
       setExportFeedback({
         scope: "cases",
         message: {
@@ -497,148 +204,7 @@ export default function AdminPage() {
     setExportFeedback(null);
 
     try {
-      const XLSXModule = await import("xlsx-js-style");
-      const XLSX = XLSXModule.default ?? XLSXModule;
-      const workbook = XLSX.utils.book_new();
-      const generatedAt = new Date();
-      const headerLabels = [
-        "Nombre completo",
-        "Correo",
-        "Teléfono",
-        "Rol",
-        "Registrado",
-      ];
-      const columnWidths = [30, 30, 22, 14, 22];
-      const columnsCount = headerLabels.length;
-      const fillerRow = Array(columnsCount - 1).fill(null);
-      const rows: Array<Array<string | null>> = [
-        ["Directorio de laboratoristas", ...fillerRow],
-        [
-          `Actualizado el ${new Intl.DateTimeFormat("es-PE", {
-            dateStyle: "long",
-            timeStyle: "short",
-          }).format(generatedAt)}`,
-          ...fillerRow,
-        ],
-        headerLabels,
-      ];
-
-      const sheet = XLSX.utils.aoa_to_sheet(rows);
-      sheet["!cols"] = columnWidths.map((wch) => ({ wch }));
-      sheet["!rows"] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 26 }];
-      sheet["!merges"] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: columnsCount - 1 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: columnsCount - 1 } },
-      ];
-
-      const brand = exportPalette;
-      const borderStyle = {
-        top: { style: "thin", color: { rgb: brand.border } },
-        bottom: { style: "thin", color: { rgb: brand.border } },
-        left: { style: "thin", color: { rgb: brand.border } },
-        right: { style: "thin", color: { rgb: brand.border } },
-      } as const;
-
-      const titleCell = sheet["A1"];
-      if (titleCell) {
-        titleCell.s = {
-          font: { sz: 18, bold: true, color: { rgb: brand.dark } },
-          alignment: { horizontal: "center", vertical: "center" },
-          fill: { patternType: "solid", fgColor: { rgb: brand.light } },
-          border: borderStyle,
-        };
-      }
-      const subtitleCell = sheet["A2"];
-      if (subtitleCell) {
-        subtitleCell.s = {
-          font: { sz: 12, color: { rgb: brand.muted } },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: {
-            bottom: borderStyle.bottom,
-            left: borderStyle.left,
-            right: borderStyle.right,
-          },
-        };
-      }
-
-      const headerRowIndex = 2;
-      headerLabels.forEach((_, columnIndex) => {
-        const cellRef = XLSX.utils.encode_cell({
-          r: headerRowIndex,
-          c: columnIndex,
-        });
-        const cell = sheet[cellRef];
-        if (!cell) return;
-        cell.s = {
-          font: { bold: true, color: { rgb: "FFFFFFFF" } },
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: true,
-          },
-          fill: { patternType: "solid", fgColor: { rgb: brand.dark } },
-          border: borderStyle,
-        };
-      });
-
-      const dataRows = technicians.map((tech) => [
-        tech.name,
-        tech.email ?? "Sin correo",
-        tech.phone ?? "No registrado",
-        tech.role === "admin" ? "Administrador" : "Laboratorista",
-        tech.createdAt ? formatDateTime(tech.createdAt) : "Sin fecha",
-      ]);
-
-      if (dataRows.length) {
-        XLSX.utils.sheet_add_aoa(sheet, dataRows, { origin: -1 });
-      }
-
-      const firstDataRowIndex = headerRowIndex + 1;
-      dataRows.forEach((_, rowOffset) => {
-        const rowIndex = firstDataRowIndex + rowOffset;
-        const isStriped = rowOffset % 2 === 1;
-        headerLabels.forEach((_, columnIndex) => {
-          const cellRef = XLSX.utils.encode_cell({
-            r: rowIndex,
-            c: columnIndex,
-          });
-          const cell = sheet[cellRef];
-          if (!cell) return;
-          cell.s = {
-            font: { color: { rgb: brand.dark } },
-            alignment: {
-              vertical: "center",
-              horizontal: columnIndex === 2 ? "center" : "left",
-              wrapText: columnIndex >= 0,
-            },
-            fill: isStriped
-              ? { patternType: "solid", fgColor: { rgb: brand.stripe } }
-              : undefined,
-            border: borderStyle,
-          };
-        });
-      });
-
-      const headerRowNumber = headerRowIndex + 1;
-      const totalRowCount = headerRowNumber + dataRows.length;
-      sheet["!autofilter"] = {
-        ref: `A${headerRowNumber}:E${totalRowCount || headerRowNumber}`,
-      };
-
-      XLSX.utils.book_append_sheet(workbook, sheet, "Laboratoristas");
-      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `intechlab-laboratoristas-${generatedAt
-        .toISOString()
-        .slice(0, 10)}.xlsx`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-
+      await exportTechniciansDirectory(technicians);
       setExportFeedback({
         scope: "technicians",
         message: {
@@ -676,148 +242,7 @@ export default function AdminPage() {
     setExportFeedback(null);
 
     try {
-      const XLSXModule = await import("xlsx-js-style");
-      const XLSX = XLSXModule.default ?? XLSXModule;
-      const workbook = XLSX.utils.book_new();
-      const generatedAt = new Date();
-      const headerLabels = [
-        "Nombre completo",
-        "Correo",
-        "Teléfono",
-        "Rol",
-        "Registrado",
-      ];
-      const columnWidths = [30, 30, 22, 14, 22];
-      const columnsCount = headerLabels.length;
-      const fillerRow = Array(columnsCount - 1).fill(null);
-      const rows: Array<Array<string | null>> = [
-        ["Directorio de doctores", ...fillerRow],
-        [
-          `Actualizado el ${new Intl.DateTimeFormat("es-PE", {
-            dateStyle: "long",
-            timeStyle: "short",
-          }).format(generatedAt)}`,
-          ...fillerRow,
-        ],
-        headerLabels,
-      ];
-
-      const sheet = XLSX.utils.aoa_to_sheet(rows);
-      sheet["!cols"] = columnWidths.map((wch) => ({ wch }));
-      sheet["!rows"] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 26 }];
-      sheet["!merges"] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: columnsCount - 1 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: columnsCount - 1 } },
-      ];
-
-      const brand = exportPalette;
-      const borderStyle = {
-        top: { style: "thin", color: { rgb: brand.border } },
-        bottom: { style: "thin", color: { rgb: brand.border } },
-        left: { style: "thin", color: { rgb: brand.border } },
-        right: { style: "thin", color: { rgb: brand.border } },
-      } as const;
-
-      const titleCell = sheet["A1"];
-      if (titleCell) {
-        titleCell.s = {
-          font: { sz: 18, bold: true, color: { rgb: brand.dark } },
-          alignment: { horizontal: "center", vertical: "center" },
-          fill: { patternType: "solid", fgColor: { rgb: brand.light } },
-          border: borderStyle,
-        };
-      }
-      const subtitleCell = sheet["A2"];
-      if (subtitleCell) {
-        subtitleCell.s = {
-          font: { sz: 12, color: { rgb: brand.muted } },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: {
-            bottom: borderStyle.bottom,
-            left: borderStyle.left,
-            right: borderStyle.right,
-          },
-        };
-      }
-
-      const headerRowIndex = 2;
-      headerLabels.forEach((_, columnIndex) => {
-        const cellRef = XLSX.utils.encode_cell({
-          r: headerRowIndex,
-          c: columnIndex,
-        });
-        const cell = sheet[cellRef];
-        if (!cell) return;
-        cell.s = {
-          font: { bold: true, color: { rgb: "FFFFFFFF" } },
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: true,
-          },
-          fill: { patternType: "solid", fgColor: { rgb: brand.dark } },
-          border: borderStyle,
-        };
-      });
-
-      const dataRows = dentists.map((dentist) => [
-        dentist.name,
-        dentist.email ?? "Sin correo",
-        dentist.phone ?? "No registrado",
-        "Doctor tratante",
-        dentist.createdAt ? formatDateTime(dentist.createdAt) : "Sin fecha",
-      ]);
-
-      if (dataRows.length) {
-        XLSX.utils.sheet_add_aoa(sheet, dataRows, { origin: -1 });
-      }
-
-      const firstDataRowIndex = headerRowIndex + 1;
-      dataRows.forEach((_, rowOffset) => {
-        const rowIndex = firstDataRowIndex + rowOffset;
-        const isStriped = rowOffset % 2 === 1;
-        headerLabels.forEach((_, columnIndex) => {
-          const cellRef = XLSX.utils.encode_cell({
-            r: rowIndex,
-            c: columnIndex,
-          });
-          const cell = sheet[cellRef];
-          if (!cell) return;
-          cell.s = {
-            font: { color: { rgb: brand.dark } },
-            alignment: {
-              vertical: "center",
-              horizontal: columnIndex === 2 ? "center" : "left",
-              wrapText: true,
-            },
-            fill: isStriped
-              ? { patternType: "solid", fgColor: { rgb: brand.stripe } }
-              : undefined,
-            border: borderStyle,
-          };
-        });
-      });
-
-      const headerRowNumber = headerRowIndex + 1;
-      const totalRowCount = headerRowNumber + dataRows.length;
-      sheet["!autofilter"] = {
-        ref: `A${headerRowNumber}:E${totalRowCount || headerRowNumber}`,
-      };
-
-      XLSX.utils.book_append_sheet(workbook, sheet, "Doctores");
-      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `intechlab-doctores-${generatedAt
-        .toISOString()
-        .slice(0, 10)}.xlsx`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-
+      await exportDentistsDirectory(dentists);
       setExportFeedback({
         scope: "dentists",
         message: {
@@ -847,7 +272,7 @@ export default function AdminPage() {
     try {
       await createJob(jobDraft);
       setJobDraft((prev) => ({
-        ...defaultJob,
+        ...DEFAULT_JOB,
         arrivalDate: prev.arrivalDate,
         dueDate: "",
         assignedTo: prev.assignedTo,
@@ -940,7 +365,7 @@ export default function AdminPage() {
       }
 
       const confirmedEmail = technicianDraft.email;
-      setTechnicianDraft(defaultTechnician);
+      setTechnicianDraft(DEFAULT_TECHNICIAN);
       setTechnicianMessage({
         type: "success",
         text: `Laboratorista registrado. Comparte las credenciales con ${confirmedEmail}.`,
@@ -1027,7 +452,7 @@ export default function AdminPage() {
       }
 
       const confirmedEmail = dentistDraft.email;
-      setDentistDraft(defaultDentist);
+      setDentistDraft(DEFAULT_DENTIST);
       setDentistMessage({
         type: "success",
         text: `Doctor registrado. Comparte las credenciales con ${confirmedEmail}.`,
@@ -1177,35 +602,11 @@ export default function AdminPage() {
           Volver al dashboard
         </button>
       </header>
-      <nav className="mt-6 flex gap-3 overflow-x-auto border-b border-black/10 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {adminTabs.map((tab) => {
-          const isActive = tab.id === activeTab;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              aria-pressed={isActive}
-              className={`min-w-[180px] flex-shrink-0 flex flex-col rounded-2xl border px-4 py-2.5 text-left transition ${
-                isActive
-                  ? "border-black/80 bg-black text-white"
-                  : "border-black/10 bg-white/70 text-[var(--foreground)] hover:border-black/30"
-              }`}
-            >
-              <span className="text-sm font-semibold tracking-wide sm:text-base">
-                {tab.label}
-              </span>
-              <span
-                className={`text-[10px] sm:text-[11px] ${
-                  isActive ? "text-white/70" : "text-muted"
-                }`}
-              >
-                {tab.description}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+      <AdminTabsNav
+        tabs={ADMIN_TABS}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {activeTab === "cases" ? (
         <section className="mt-8 grid gap-6 lg:[grid-template-columns:minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -1220,168 +621,22 @@ export default function AdminPage() {
               message={message}
             />
           </div>
-          <article className="min-w-0 rounded-3xl border border-black/10 bg-gradient-to-br from-white via-white to-[#f7f8fb] p-6 shadow-[0_25px_60px_rgba(26,18,11,0.08)]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-muted">
-                  Estado global
-                </p>
-                <h3 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
-                  {jobsLoading
-                    ? "Sincronizando..."
-                    : `${statusSummary.total} casos registrados`}
-                </h3>
-              </div>
-              <span className="inline-flex items-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">
-                {jobsLoading ? "···" : `${statusSummary.total}`}
-              </span>
-            </div>
-            {!jobsLoading && (
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <StatusPill
-                  label="Pendientes"
-                  value={statusSummary.pending}
-                  accent="bg-[#fff5e6] text-[#c07a00]"
-                />
-                <StatusPill
-                  label="En proceso"
-                  value={statusSummary.inProgress}
-                  accent="bg-[#eef5ff] text-[#1d5fd1]"
-                />
-                <StatusPill
-                  label="Listos"
-                  value={statusSummary.ready}
-                  accent="bg-[#effaf3] text-[#1d8b4d]"
-                />
-                <StatusPill
-                  label="Entregados"
-                  value={statusSummary.delivered}
-                  accent="bg-[#f6f1ff] text-[#6c3db8]"
-                />
-              </div>
-            )}
-            <div className="mt-6 rounded-3xl border border-dashed border-black/15 bg-white/80 px-5 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-muted">
-                Exportar casos
-              </p>
-              <p className="mt-2 text-sm text-[var(--foreground)]">
-                Descarga un Excel con este resumen y todos los casos con los
-                estilos de Intechlab.
-              </p>
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={handleExportCases}
-                  disabled={
-                    jobsLoading || isExportingCases || jobs.length === 0
-                  }
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/80 disabled:opacity-50"
-                >
-                  <Download
-                    className={`size-4 ${
-                      isExportingCases ? "animate-pulse" : ""
-                    }`}
-                  />
-                  {isExportingCases
-                    ? "Generando plantilla..."
-                    : "Exportar casos"}
-                </button>
-                {exportFeedback?.scope === "cases" ? (
-                  <span
-                    className={`text-sm ${
-                      exportFeedback.message.type === "error"
-                        ? "text-[#c0392b]"
-                        : "text-[#1f8f58]"
-                    }`}
-                  >
-                    {exportFeedback.message.text}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-            <div className="mt-4 rounded-3xl border border-dashed border-black/15 bg-white/80 px-5 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-muted">
-                Exportar laboratoristas
-              </p>
-              <p className="mt-2 text-sm text-[var(--foreground)]">
-                Obtén el directorio completo del equipo de laboratorio con sus
-                correos, teléfonos y roles.
-              </p>
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={handleExportTechnicians}
-                  disabled={
-                    techniciansLoading ||
-                    isExportingTechnicians ||
-                    technicians.length === 0
-                  }
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/80 disabled:opacity-50"
-                >
-                  <Download
-                    className={`size-4 ${
-                      isExportingTechnicians ? "animate-pulse" : ""
-                    }`}
-                  />
-                  {isExportingTechnicians
-                    ? "Generando directorio..."
-                    : "Exportar laboratoristas"}
-                </button>
-                {exportFeedback?.scope === "technicians" ? (
-                  <span
-                    className={`text-sm ${
-                      exportFeedback.message.type === "error"
-                        ? "text-[#c0392b]"
-                        : "text-[#1f8f58]"
-                    }`}
-                  >
-                    {exportFeedback.message.text}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-            <div className="mt-4 rounded-3xl border border-dashed border-black/15 bg-white/80 px-5 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-muted">
-                Exportar doctores
-              </p>
-              <p className="mt-2 text-sm text-[var(--foreground)]">
-                Descarga la lista de doctores con la misma plantilla estilizada
-                para compartirla con tu equipo.
-              </p>
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={handleExportDentists}
-                  disabled={
-                    dentistsLoading ||
-                    isExportingDentists ||
-                    dentists.length === 0
-                  }
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-black/80 disabled:opacity-50"
-                >
-                  <Download
-                    className={`size-4 ${
-                      isExportingDentists ? "animate-pulse" : ""
-                    }`}
-                  />
-                  {isExportingDentists
-                    ? "Preparando archivo..."
-                    : "Exportar doctores"}
-                </button>
-                {exportFeedback?.scope === "dentists" ? (
-                  <span
-                    className={`text-sm ${
-                      exportFeedback.message.type === "error"
-                        ? "text-[#c0392b]"
-                        : "text-[#1f8f58]"
-                    }`}
-                  >
-                    {exportFeedback.message.text}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </article>
+          <AdminSummaryPanel
+            statusSummary={statusSummary}
+            jobsLoading={jobsLoading}
+            techniciansLoading={techniciansLoading}
+            dentistsLoading={dentistsLoading}
+            jobsCount={jobs.length}
+            techniciansCount={technicians.length}
+            dentistsCount={dentists.length}
+            isExportingCases={isExportingCases}
+            isExportingTechnicians={isExportingTechnicians}
+            isExportingDentists={isExportingDentists}
+            onExportCases={handleExportCases}
+            onExportTechnicians={handleExportTechnicians}
+            onExportDentists={handleExportDentists}
+            exportFeedback={exportFeedback}
+          />
         </section>
       ) : null}
 
@@ -1429,22 +684,5 @@ export default function AdminPage() {
         </section>
       ) : null}
     </PortalShell>
-  );
-}
-
-type StatusPillProps = {
-  label: string;
-  value: number;
-  accent: string;
-};
-
-function StatusPill({ label, value, accent }: StatusPillProps) {
-  return (
-    <div className={`rounded-2xl border border-black/10 ${accent} px-4 py-3`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.3em]">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
-    </div>
   );
 }

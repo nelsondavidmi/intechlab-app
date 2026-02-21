@@ -3,7 +3,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
+import {
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import Link from "next/link";
 import { auth } from "@/lib/firebase/client";
 import { useAuth } from "@/providers/auth-provider";
@@ -94,7 +97,7 @@ export default function LoginPage() {
         href="/"
         className="mb-8 text-sm text-muted underline decoration-dotted"
       >
-        ← Regresar a la landing
+        ← Regresar a la pagina principal
       </Link>
 
       <div className="relative rounded-3xl border border-black/10 bg-white px-8 pb-8 shadow-[0_25px_60px_rgba(26,18,11,0.08)]">
@@ -157,7 +160,7 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="mt-6 text-center text-sm text-muted">
-          ¿Sin acceso? {" "}
+          ¿Sin acceso?{" "}
           <button
             type="button"
             onClick={openResetModal}

@@ -150,6 +150,7 @@ export default function DashboardPage() {
 
     try {
       await updateJobStatus(job.id, nextStatus);
+      expandStatus(nextStatus);
     } catch (error) {
       setStatusError((error as Error).message);
     } finally {
@@ -189,6 +190,7 @@ export default function DashboardPage() {
           submittedAt: new Date().toISOString(),
         },
       });
+      expandStatus(JOB_STATUS.READY);
     } catch (error) {
       const message =
         (error as Error).message ?? "No se pudo cargar la evidencia.";
@@ -237,6 +239,7 @@ export default function DashboardPage() {
       await updateJobStatus(job.id, JOB_STATUS.DELIVERED, {
         deliveryEvidence,
       });
+      expandStatus(JOB_STATUS.DELIVERED);
     } catch (error) {
       const message =
         (error as Error).message ?? "No se pudo registrar la evidencia final.";
@@ -257,6 +260,7 @@ export default function DashboardPage() {
 
     try {
       await updateJobStatus(job.id, JOB_STATUS.IN_PROGRESS);
+      expandStatus(JOB_STATUS.IN_PROGRESS);
     } catch (error) {
       setStatusError(
         (error as Error).message ?? "No se pudo devolver el caso a proceso.",
@@ -301,6 +305,13 @@ export default function DashboardPage() {
     setExpandedStatuses((prev) => ({
       ...prev,
       [status]: !prev[status],
+    }));
+  }
+
+  function expandStatus(status: JobStatus) {
+    setExpandedStatuses((prev) => ({
+      ...prev,
+      [status]: true,
     }));
   }
 

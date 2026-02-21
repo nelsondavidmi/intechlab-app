@@ -33,6 +33,10 @@ export const metadata: Metadata = {
     siteName: "intechlab",
     type: "website",
   },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({

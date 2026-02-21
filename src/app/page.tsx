@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import {
   ContactSection,
   FloatingWhatsapp,
@@ -6,6 +8,13 @@ import {
   ServicesSection,
   SiteHeader,
 } from "@/components";
+
+export const metadata: Metadata = {
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 export default function Home() {
   return (
