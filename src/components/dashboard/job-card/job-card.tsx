@@ -18,6 +18,7 @@ export type JobCardProps = {
   job: Job;
   canAdvance: boolean;
   isAdmin: boolean;
+  hidePriority?: boolean;
   technicians: Technician[];
   onAdvance: (job: Job, nextStatus: JobStatus) => void | Promise<void>;
   onSubmitEvidence: (job: Job, payload: EvidencePayload) => Promise<void>;
@@ -54,11 +55,11 @@ const PRIORITY_STYLES: Record<
     text: "text-[#1f8f58]",
   },
 };
-
 export function JobCard({
   job,
   canAdvance,
   isAdmin,
+  hidePriority,
   technicians,
   onAdvance,
   onSubmitEvidence,
@@ -82,6 +83,7 @@ export function JobCard({
   }, [job.assignedTo]);
 
   const badge = statusConfig[job.status];
+  const priorityBadge = hidePriority ? null : PRIORITY_STYLES[job.priority];
   const nextStatus = getNextStatus(job.status);
   const nextLabel = nextStatus ? statusConfig[nextStatus].label : null;
   const assignedLabel = job.assignedToName ?? job.assignedTo ?? "Sin asignar";
@@ -91,7 +93,6 @@ export function JobCard({
   const canAdminDeliver = awaitingDelivery && isAdmin;
   const canReassign = isAdmin && REASSIGNABLE_STATUSES.has(job.status);
   const availableTechnicians = technicians.filter((tech) => tech.email);
-  const priorityBadge = PRIORITY_STYLES[job.priority];
   const showAdvanceButton =
     Boolean(nextStatus) &&
     !requiresEvidence &&

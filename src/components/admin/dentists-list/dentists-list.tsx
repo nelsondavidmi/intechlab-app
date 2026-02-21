@@ -38,7 +38,7 @@ export function DentistsList({
                 key={dentist.id}
                 className="rounded-2xl border border-black/5 bg-white/70 px-4 py-3"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-semibold text-[var(--foreground)]">
                       {dentist.name}
@@ -54,7 +54,7 @@ export function DentistsList({
                     type="button"
                     onClick={() => onDelete(dentist.id)}
                     disabled={deletingId === dentist.id}
-                    className="inline-flex items-center gap-1 rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:border-[#c0392b] hover:text-[#c0392b] disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-1 rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:border-[#c0392b] hover:text-[#c0392b] disabled:opacity-60 sm:w-auto"
                   >
                     {deletingId === dentist.id ? (
                       <Loader2 className="size-3 animate-spin" />

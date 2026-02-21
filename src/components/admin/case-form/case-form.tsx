@@ -46,10 +46,10 @@ export function CaseForm({
     >
       <div className="flex items-center gap-3">
         <PlusCircle className="size-5 text-[var(--accent)]" />
-        <h2 className="text-xl font-semibold">Registrar nuevo caso</h2>
+        <h2 className="text-lg font-semibold">Registrar nuevo caso</h2>
       </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <label className="flex flex-col text-sm font-medium text-muted">
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted">
           Paciente
           <input
             className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
@@ -60,7 +60,7 @@ export function CaseForm({
             required
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-muted">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted">
           Doctor tratante
           {hasRegisteredDentists ? (
             <select
@@ -99,7 +99,7 @@ export function CaseForm({
             />
           )}
         </label>
-        <label className="flex flex-col text-sm font-medium text-muted md:col-span-2">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted md:col-span-2">
           Detalle del caso
           <input
             className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
@@ -110,11 +110,11 @@ export function CaseForm({
             required
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-muted">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted">
           Fecha de llegada
           <input
             type="datetime-local"
-            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 block w-full min-w-0 max-w-full appearance-none rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.arrivalDate}
             onChange={(event) =>
               onChange((prev) => ({ ...prev, arrivalDate: event.target.value }))
@@ -122,11 +122,11 @@ export function CaseForm({
             required
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-muted">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted">
           Fecha de entrega
           <input
             type="datetime-local"
-            className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
+            className="mt-2 block w-full min-w-0 max-w-full appearance-none rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.dueDate}
             onChange={(event) =>
               onChange((prev) => ({ ...prev, dueDate: event.target.value }))
@@ -135,7 +135,7 @@ export function CaseForm({
             required
           />
         </label>
-        <label className="flex flex-col text-sm font-medium text-muted">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted">
           Técnico asignado
           {hasRegisteredTechnicians ? (
             <select
@@ -179,7 +179,7 @@ export function CaseForm({
             />
           )}
         </label>
-        <label className="flex flex-col text-sm font-medium text-muted">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted">
           Prioridad
           <select
             className="mt-2 w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
@@ -196,7 +196,7 @@ export function CaseForm({
             <option value="baja">Baja</option>
           </select>
         </label>
-        <label className="flex flex-col text-sm font-medium text-muted md:col-span-2">
+        <label className="flex min-w-0 flex-col text-sm font-medium text-muted md:col-span-2">
           Notas
           <textarea
             className="mt-2 min-h-[120px] w-full rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"

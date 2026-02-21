@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { JobCard, PortalShell } from "@/components/dashboard";
+import { JobCard, PortalShell, VerifySession } from "@/components/dashboard";
 import { JOB_STATUS, skeletonJobs, statusOrder } from "@/constants";
 import { useJobs } from "@/hooks/use-jobs";
 import { useTechnicians } from "@/hooks/use-technicians";
@@ -24,8 +24,13 @@ const sortModeLabels: Record<SortMode, string> = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, loading, signOutUser, isAdmin } = useAuth();
+  const { user, loading, signOutUser, isAdmin, token } = useAuth();
   const userIdentity = user?.email ?? user?.displayName ?? undefined;
+  const role = token?.claims?.role;
+  const isDoctor = role === "doctor";
+  const headerLabel = isDoctor ? "Tus casos" : "Carga personal";
+  const doctorEmail = user?.email?.toLowerCase() ?? null;
+  const doctorName = normalizeName(user?.displayName);
   const { technicians, loading: techniciansLoading } = useTechnicians();
   const [selectedTechnician, setSelectedTechnician] = useState<string>("all");
   const jobFilters = (() => {
@@ -36,9 +41,13 @@ export default function DashboardPage() {
       return { assignedTo: selectedTechnician };
     }
 
+    if (isDoctor) {
+      return undefined;
+    }
+
     return userIdentity ? { assignedTo: userIdentity } : undefined;
   })();
-  const { groupedByStatus, loading: jobsLoading } = useJobs(jobFilters);
+  const { groupedByStatus, jobs, loading: jobsLoading } = useJobs(jobFilters);
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [expandedStatuses, setExpandedStatuses] = useState<
@@ -63,6 +72,56 @@ export default function DashboardPage() {
       ),
   );
   const [openSortMenu, setOpenSortMenu] = useState<JobStatus | null>(null);
+  const sortMenuRefs = useRef<Record<JobStatus, HTMLDivElement | null>>(
+    createSortMenuRefBuckets(),
+  );
+  const allowStatusSorting = !isDoctor;
+  const [lastUpdatedLabel, setLastUpdatedLabel] = useState("");
+
+  const displayedJobsByStatus = useMemo(() => {
+    if (!isDoctor) {
+      return groupedByStatus;
+    }
+
+    const filteredJobs = jobs.filter((job) =>
+      jobMatchesDoctor(job, doctorEmail, doctorName),
+    );
+
+    return groupJobsByStatus(filteredJobs);
+  }, [doctorEmail, doctorName, groupedByStatus, isDoctor, jobs]);
+
+  useEffect(() => {
+    if (!openSortMenu) {
+      return;
+    }
+
+    const activeMenuKey = openSortMenu;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        setOpenSortMenu(null);
+        return;
+      }
+      const currentMenu = sortMenuRefs.current[activeMenuKey];
+      if (currentMenu?.contains(target)) {
+        return;
+      }
+      setOpenSortMenu(null);
+    }
+
+    globalThis.addEventListener("pointerdown", handlePointerDown);
+    return () =>
+      globalThis.removeEventListener("pointerdown", handlePointerDown);
+  }, [openSortMenu]);
+
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("es-ES", {
+      dateStyle: "full",
+      timeStyle: "short",
+    });
+    setLastUpdatedLabel(formatter.format(new Date()));
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -260,7 +319,7 @@ export default function DashboardPage() {
   if (loading || !user) {
     return (
       <PortalShell>
-        <p className="text-muted">Verificando sesión...</p>
+        <VerifySession />
       </PortalShell>
     );
   }
@@ -279,18 +338,14 @@ export default function DashboardPage() {
           />
           <div>
             <p className="text-sm uppercase tracking-[0.25em] text-muted">
-              Carga personal
+              {headerLabel}
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
               Hola {user.displayName ?? user.email},{" "}
               {isAdmin ? "estos son todos los casos." : "estos son tus casos."}
             </h1>
             <p className="text-sm text-muted">
-              Última actualización:{" "}
-              {new Intl.DateTimeFormat("es-ES", {
-                dateStyle: "full",
-                timeStyle: "short",
-              }).format(new Date())}
+              Última actualización: {lastUpdatedLabel || "Sincronizando..."}
             </p>
           </div>
         </div>
@@ -302,7 +357,7 @@ export default function DashboardPage() {
             <select
               value={selectedTechnician}
               onChange={(event) => setSelectedTechnician(event.target.value)}
-              className="rounded-2xl border border-black/10 px-4 py-2 text-[var(--foreground)] focus:border-black/40 focus:outline-none"
+              className="w-full rounded-2xl border border-black/10 px-4 py-2 text-[var(--foreground)] focus:border-black/40 focus:outline-none md:w-64"
             >
               <option value="all">Todos los casos</option>
               {technicians
@@ -337,9 +392,11 @@ export default function DashboardPage() {
 
       <section className="mt-8 grid gap-5 md:grid-cols-2">
         {statusOrder.map((status) => {
-          const statusJobs = groupedByStatus[status];
+          const statusJobs = displayedJobsByStatus[status] ?? [];
           const isExpanded = expandedStatuses[status] ?? false;
-          const sortMode = statusSort[status] ?? "dueDate";
+          const sortMode = allowStatusSorting
+            ? (statusSort[status] ?? "dueDate")
+            : "dueDate";
           const displayJobs = jobsLoading
             ? skeletonJobs
             : sortJobsByMode(statusJobs, sortMode);
@@ -350,7 +407,22 @@ export default function DashboardPage() {
               key={status}
               className="min-w-0 rounded-3xl border border-black/10 bg-white/90 p-5 shadow-[0_20px_50px_rgba(26,18,11,0.07)]"
             >
-              <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <header
+                className={`flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between ${
+                  canToggle ? "cursor-pointer" : ""
+                }`}
+                role={canToggle ? "button" : undefined}
+                tabIndex={canToggle ? 0 : undefined}
+                aria-expanded={isExpanded}
+                onClick={() => canToggle && toggleStatusVisibility(status)}
+                onKeyDown={(event) => {
+                  if (!canToggle) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleStatusVisibility(status);
+                  }
+                }}
+              >
                 <div>
                   <p className="text-xs uppercase tracking-[0.4em] text-muted">
                     {status}
@@ -360,42 +432,62 @@ export default function DashboardPage() {
                   </h2>
                 </div>
                 <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
-                  <div className="relative flex-1 lg:flex-initial">
-                    <button
-                      type="button"
-                      onClick={() => toggleSortMenu(status)}
-                      aria-haspopup="menu"
-                      aria-expanded={sortMenuOpen}
-                      className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-black/10 px-4 py-2 text-sm text-muted transition hover:border-black/30 lg:w-48"
+                  {allowStatusSorting ? (
+                    <div
+                      className="relative flex-1 lg:flex-initial"
+                      ref={(node) => {
+                        sortMenuRefs.current[status] = node;
+                      }}
                     >
-                      Ordenar por {sortModeLabels[sortMode]}
-                      <ChevronDown className="size-4" />
-                    </button>
-                    {sortMenuOpen ? (
-                      <div className="absolute right-0 z-20 mt-2 w-48 rounded-2xl border border-black/10 bg-white py-2 shadow-xl">
-                        {(Object.keys(sortModeLabels) as SortMode[]).map(
-                          (mode) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              onClick={() => handleSortChange(status, mode)}
-                              className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm ${
-                                sortMode === mode
-                                  ? "font-semibold text-[var(--foreground)]"
-                                  : "text-muted"
-                              } hover:bg-black/5`}
-                            >
-                              Ordenar por {sortModeLabels[mode]}
-                              {sortMode === mode ? "·" : null}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleSortMenu(status);
+                        }}
+                        aria-haspopup="menu"
+                        aria-expanded={sortMenuOpen}
+                        className="inline-flex w-full items-center justify-between gap-2 rounded-full border border-black/10 px-4 py-2 text-sm text-muted transition hover:border-black/30 lg:w-48"
+                      >
+                        Ordenar por {sortModeLabels[sortMode]}
+                        <ChevronDown className="size-4" />
+                      </button>
+                      {sortMenuOpen ? (
+                        <div className="absolute right-0 z-20 mt-2 w-48 rounded-2xl border border-black/10 bg-white py-2 shadow-xl">
+                          {(Object.keys(sortModeLabels) as SortMode[]).map(
+                            (mode) => (
+                              <button
+                                key={mode}
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleSortChange(status, mode);
+                                }}
+                                className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm ${
+                                  sortMode === mode
+                                    ? "font-semibold text-[var(--foreground)]"
+                                    : "text-muted"
+                                } hover:bg-black/5`}
+                              >
+                                Ordenar por {sortModeLabels[mode]}
+                                {sortMode === mode ? "·" : null}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="flex flex-1 items-center rounded-full border border-black/10 px-4 py-2 text-sm text-muted">
+                      Ordenado por entrega
+                    </div>
+                  )}
                   <button
                     type="button"
-                    onClick={() => canToggle && toggleStatusVisibility(status)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      canToggle && toggleStatusVisibility(status);
+                    }}
                     aria-expanded={isExpanded}
                     disabled={!canToggle}
                     className={`inline-flex size-8 flex-shrink-0 items-center justify-center rounded-full border border-black/10 text-muted transition ${
@@ -422,6 +514,7 @@ export default function DashboardPage() {
                         !jobsLoading
                       }
                       isAdmin={isAdmin}
+                      hidePriority={isDoctor}
                       technicians={technicians}
                       onAdvance={handleAdvance}
                       onSubmitEvidence={handleSubmitEvidence}
@@ -481,4 +574,75 @@ function sortJobsByMode(jobs: Job[], mode: SortMode) {
 function getTimeValue(value: string) {
   const time = Date.parse(value);
   return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
+}
+
+function groupJobsByStatus(jobs: Job[]) {
+  return jobs.reduce<Record<JobStatus, Job[]>>((acc, job) => {
+    acc[job.status].push(job);
+    return acc;
+  }, createStatusBuckets());
+}
+
+function createStatusBuckets() {
+  return statusOrder.reduce<Record<JobStatus, Job[]>>(
+    (acc, status) => {
+      acc[status] = [];
+      return acc;
+    },
+    {} as Record<JobStatus, Job[]>,
+  );
+}
+
+function createSortMenuRefBuckets() {
+  return statusOrder.reduce<Record<JobStatus, HTMLDivElement | null>>(
+    (acc, status) => {
+      acc[status] = null;
+      return acc;
+    },
+    {} as Record<JobStatus, HTMLDivElement | null>,
+  );
+}
+
+function jobMatchesDoctor(
+  job: Job,
+  doctorEmail: string | null,
+  doctorName: string | null,
+) {
+  if (!doctorEmail && !doctorName) {
+    return false;
+  }
+
+  const dentistLabel = job.dentist ?? "";
+  const normalizedLabel = dentistLabel.toLowerCase();
+
+  if (doctorEmail) {
+    const labelEmail = extractEmailCandidate(dentistLabel);
+    if (labelEmail && labelEmail === doctorEmail) {
+      return true;
+    }
+
+    if (normalizedLabel.includes(doctorEmail)) {
+      return true;
+    }
+  }
+
+  if (doctorName) {
+    return normalizeName(dentistLabel) === doctorName;
+  }
+
+  return false;
+}
+
+function extractEmailCandidate(value: string) {
+  const match = value
+    .toLowerCase()
+    .match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
+  return match ? match[0] : null;
+}
+
+function normalizeName(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+  return value.trim().toLowerCase();
 }
