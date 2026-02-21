@@ -41,12 +41,6 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <Link
-          href="/login"
-          className="hidden rounded-full border border-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-dark)] md:inline-flex"
-        >
-          Portal interno
-        </Link>
       </div>
     </header>
   );

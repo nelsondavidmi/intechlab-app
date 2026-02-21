@@ -69,6 +69,11 @@ export default function AdminPage() {
     scope: ExportScope;
     message: Exclude<FormMessage, null>;
   } | null>(null);
+  const adminName =
+    user?.displayName?.split(" ")[0] ??
+    user?.displayName ??
+    user?.email ??
+    "administrador";
   const statusSummary = useMemo<StatusSummary>(() => {
     const summary = {
       total: jobs.length,
@@ -590,16 +595,23 @@ export default function AdminPage() {
             <p className="text-sm uppercase tracking-[0.25em] text-muted">
               Gestor interno
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
-              Panel administrativo
-            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-semibold text-[var(--foreground)]">
+                Panel administrativo
+              </h1>
+              <p className="w-full text-sm text-muted">
+                Hola {adminName}, aquí puedes registrar casos, sumar personal
+                médico y dar seguimiento a tu operación diaria.
+              </p>
+            </div>
           </div>
         </div>
         <button
+          type="button"
           onClick={() => router.push("/dashboard")}
-          className="inline-flex items-center gap-2 rounded-full border border-black/10 px-4 py-2 text-sm text-[var(--foreground)]"
+          className="self-end rounded-full border border-black/10 px-4 py-1.5 text-xs font-semibold text-muted transition hover:border-black/40 hover:text-[var(--foreground)] md:self-auto"
         >
-          Volver al dashboard
+          Regresar
         </button>
       </header>
       <AdminTabsNav

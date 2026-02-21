@@ -25,6 +25,29 @@ function createBorderStyle() {
     } as const;
 }
 
+function createSummaryColumnGroups(columnsCount: number, groupsCount: number) {
+    const baseSpan = Math.floor(columnsCount / groupsCount);
+    const remainder = columnsCount % groupsCount;
+    const groups: Array<{ start: number; end: number }> = [];
+    let currentStart = 0;
+
+    for (let index = 0; index < groupsCount; index += 1) {
+        if (currentStart >= columnsCount) {
+            groups.push({ start: columnsCount - 1, end: columnsCount - 1 });
+            continue;
+        }
+
+        const extra = index < remainder ? 1 : 0;
+        const span = Math.max(1, baseSpan) + extra;
+        const start = currentStart;
+        const end = Math.min(columnsCount - 1, start + span - 1);
+        groups.push({ start, end });
+        currentStart = end + 1;
+    }
+
+    return groups;
+}
+
 function triggerDownload(XLSX: XLSXModule, workbook: Workbook, fileName: string) {
     const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const blob = new Blob([buffer], {
@@ -45,18 +68,17 @@ export async function exportCasesReport(
     const XLSX = await loadXLSX();
     const workbook = XLSX.utils.book_new();
     const generatedAt = new Date();
-    const columnsCount = 8;
-    const columnWidths = [28, 26, 26, 14, 16, 22, 22, 40];
     const headerLabels = [
         "Paciente",
         "Doctor tratante",
         "Laboratorista asignado",
-        "Prioridad",
         "Estado",
         "Fecha de llegada",
         "Fecha de entrega",
         "Notas",
     ];
+    const columnsCount = headerLabels.length;
+    const columnWidths = [28, 26, 26, 16, 22, 22, 40];
     const brand = EXPORT_PALETTE;
     const borderStyle = createBorderStyle();
     const fillerRow = Array(columnsCount - 1).fill(null);
@@ -85,13 +107,25 @@ export async function exportCasesReport(
         { hpt: 16 },
         { hpt: 26 },
     ];
+    const summaryBlocks = [
+        { label: "Pendientes", value: statusSummary.pending, fill: "FFFDF4E3" },
+        { label: "En proceso", value: statusSummary.inProgress, fill: "FFEFF5FF" },
+        { label: "Listos", value: statusSummary.ready, fill: "FFEFFAF3" },
+        { label: "Entregados", value: statusSummary.delivered, fill: "FFF6F1FF" },
+    ] as const;
+
+    const summaryColumnGroups = createSummaryColumnGroups(
+        columnsCount,
+        summaryBlocks.length,
+    );
+
     sheet["!merges"] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: columnsCount - 1 } },
         { s: { r: 1, c: 0 }, e: { r: 1, c: columnsCount - 1 } },
-        { s: { r: 2, c: 0 }, e: { r: 3, c: 1 } },
-        { s: { r: 2, c: 2 }, e: { r: 3, c: 3 } },
-        { s: { r: 2, c: 4 }, e: { r: 3, c: 5 } },
-        { s: { r: 2, c: 6 }, e: { r: 3, c: 7 } },
+        ...summaryColumnGroups.map((group) => ({
+            s: { r: 2, c: group.start },
+            e: { r: 3, c: group.end },
+        })),
     ];
 
     const titleCell = sheet["A1"];
@@ -116,15 +150,10 @@ export async function exportCasesReport(
         };
     }
 
-    const summaryBlocks = [
-        { label: "Pendientes", value: statusSummary.pending, fill: "FFFDF4E3" },
-        { label: "En proceso", value: statusSummary.inProgress, fill: "FFEFF5FF" },
-        { label: "Listos", value: statusSummary.ready, fill: "FFEFFAF3" },
-        { label: "Entregados", value: statusSummary.delivered, fill: "FFF6F1FF" },
-    ] as const;
     const summaryRowTop = 2;
     summaryBlocks.forEach((block, index) => {
-        const colStart = index * 2;
+        const group = summaryColumnGroups[index];
+        const colStart = group?.start ?? 0;
         const cellRef = XLSX.utils.encode_cell({ r: summaryRowTop, c: colStart });
         const cell = sheet[cellRef] ?? { t: "s", v: "" };
         cell.v = `${block.label.toUpperCase()}\n${block.value}`;
@@ -154,17 +183,10 @@ export async function exportCasesReport(
         };
     });
 
-    const priorityLabels: Record<Job["priority"], string> = {
-        alta: "Alta",
-        media: "Media",
-        baja: "Baja",
-    };
-
     const dataRows = jobs.map((job) => [
         job.patientName,
         job.dentist || "Sin asignar",
         job.assignedToName || job.assignedTo || "Sin asignar",
-        priorityLabels[job.priority],
         statusConfig[job.status]?.label ?? job.status,
         job.arrivalDate ? formatDateTime(job.arrivalDate) : "Sin fecha",
         job.dueDate ? formatDateTime(job.dueDate) : "Sin fecha",
@@ -187,8 +209,8 @@ export async function exportCasesReport(
                 font: { color: { rgb: brand.dark } },
                 alignment: {
                     vertical: "center",
-                    horizontal: columnIndex >= 4 && columnIndex <= 6 ? "center" : "left",
-                    wrapText: columnIndex === 7,
+                    horizontal: columnIndex >= 3 && columnIndex <= 5 ? "center" : "left",
+                    wrapText: columnIndex === 6,
                 },
                 fill: isStriped
                     ? { patternType: "solid", fgColor: { rgb: brand.stripe } }
@@ -200,8 +222,9 @@ export async function exportCasesReport(
 
     const headerRowNumber = headerRowIndex + 1;
     const totalRowCount = headerRowNumber + dataRows.length;
+    const lastColumnLetter = XLSX.utils.encode_col(columnsCount - 1);
     sheet["!autofilter"] = {
-        ref: `A${headerRowNumber}:H${totalRowCount || headerRowNumber}`,
+        ref: `A${headerRowNumber}:${lastColumnLetter}${totalRowCount || headerRowNumber}`,
     };
 
     XLSX.utils.book_append_sheet(workbook, sheet, "Casos");

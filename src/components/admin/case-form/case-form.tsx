@@ -116,9 +116,29 @@ export function CaseForm({
             type="datetime-local"
             className="mt-2 block w-full min-w-0 max-w-full appearance-none rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.arrivalDate}
-            onChange={(event) =>
-              onChange((prev) => ({ ...prev, arrivalDate: event.target.value }))
-            }
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              onChange((prev) => {
+                const nextDraft: NewJobInput = {
+                  ...prev,
+                  arrivalDate: nextValue,
+                };
+
+                if (prev.dueDate && nextValue) {
+                  const dueTime = new Date(prev.dueDate).getTime();
+                  const arrivalTime = new Date(nextValue).getTime();
+                  if (
+                    !Number.isNaN(dueTime) &&
+                    !Number.isNaN(arrivalTime) &&
+                    dueTime < arrivalTime
+                  ) {
+                    nextDraft.dueDate = nextValue;
+                  }
+                }
+
+                return nextDraft;
+              });
+            }}
             required
           />
         </label>
@@ -128,9 +148,27 @@ export function CaseForm({
             type="datetime-local"
             className="mt-2 block w-full min-w-0 max-w-full appearance-none rounded-2xl border border-black/10 px-4 py-3 focus:border-[var(--accent)] focus:outline-none"
             value={jobDraft.dueDate}
-            onChange={(event) =>
-              onChange((prev) => ({ ...prev, dueDate: event.target.value }))
-            }
+            min={jobDraft.arrivalDate || undefined}
+            onChange={(event) => {
+              const requestedValue = event.target.value;
+              if (jobDraft.arrivalDate) {
+                const arrivalTime = new Date(jobDraft.arrivalDate).getTime();
+                const requestedTime = new Date(requestedValue).getTime();
+                if (
+                  !Number.isNaN(arrivalTime) &&
+                  !Number.isNaN(requestedTime) &&
+                  requestedTime < arrivalTime
+                ) {
+                  onChange((prev) => ({
+                    ...prev,
+                    dueDate: jobDraft.arrivalDate,
+                  }));
+                  return;
+                }
+              }
+
+              onChange((prev) => ({ ...prev, dueDate: requestedValue }));
+            }}
             placeholder="Selecciona fecha y hora"
             required
           />

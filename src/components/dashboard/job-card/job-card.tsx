@@ -541,7 +541,7 @@ export function JobCard({
                 type="button"
                 onClick={() => onAdvance(job, nextStatus)}
                 disabled={isUpdating}
-                className="inline-flex items-center gap-2 rounded-full border border-black/15 px-3 py-1 text-xs font-semibold text-[var(--foreground)] hover:border-black/40 disabled:opacity-60"
+                className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-black/15 px-3 py-2 text-xs font-semibold text-[var(--foreground)] hover:border-black/40 disabled:opacity-60"
               >
                 {isUpdating ? (
                   <Loader2 className="size-3 animate-spin" />

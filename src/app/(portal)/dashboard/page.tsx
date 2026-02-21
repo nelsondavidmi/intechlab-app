@@ -4,7 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { JobCard, PortalShell, VerifySession } from "@/components/dashboard";
+import { exportCasesReport } from "@/app/(portal)/admin/admin-exporters";
+import type { StatusSummary } from "@/app/(portal)/admin/admin.types";
+import {
+  DoctorExportPanel,
+  JobCard,
+  PortalShell,
+  VerifySession,
+} from "@/components/dashboard";
+import type { DoctorExportFeedback } from "@/components/dashboard";
 import { JOB_STATUS, skeletonJobs, statusOrder } from "@/constants";
 import { useJobs } from "@/hooks/use-jobs";
 import { useTechnicians } from "@/hooks/use-technicians";
@@ -50,6 +58,9 @@ export default function DashboardPage() {
   const { groupedByStatus, jobs, loading: jobsLoading } = useJobs(jobFilters);
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [isExportingDoctorCases, setIsExportingDoctorCases] = useState(false);
+  const [doctorExportFeedback, setDoctorExportFeedback] =
+    useState<DoctorExportFeedback>(null);
   const [expandedStatuses, setExpandedStatuses] = useState<
     Record<JobStatus, boolean>
   >(() =>
@@ -78,17 +89,26 @@ export default function DashboardPage() {
   const allowStatusSorting = !isDoctor;
   const [lastUpdatedLabel, setLastUpdatedLabel] = useState("");
 
+  const doctorJobs = useMemo(() => {
+    if (!isDoctor) {
+      return [] as Job[];
+    }
+
+    return jobs.filter((job) => jobMatchesDoctor(job, doctorEmail, doctorName));
+  }, [doctorEmail, doctorName, isDoctor, jobs]);
+
   const displayedJobsByStatus = useMemo(() => {
     if (!isDoctor) {
       return groupedByStatus;
     }
 
-    const filteredJobs = jobs.filter((job) =>
-      jobMatchesDoctor(job, doctorEmail, doctorName),
-    );
+    return groupJobsByStatus(doctorJobs);
+  }, [doctorJobs, groupedByStatus, isDoctor]);
 
-    return groupJobsByStatus(filteredJobs);
-  }, [doctorEmail, doctorName, groupedByStatus, isDoctor, jobs]);
+  const doctorStatusSummary = useMemo<StatusSummary>(
+    () => summarizeJobs(doctorJobs),
+    [doctorJobs],
+  );
 
   useEffect(() => {
     if (!openSortMenu) {
@@ -124,10 +144,48 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!doctorExportFeedback) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setDoctorExportFeedback(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [doctorExportFeedback]);
+
+  useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
     }
   }, [loading, router, user]);
+
+  async function handleDoctorExportCases() {
+    if (!doctorJobs.length) {
+      setDoctorExportFeedback({
+        type: "error",
+        text: "Aún no tienes casos para exportar.",
+      });
+      return;
+    }
+
+    setIsExportingDoctorCases(true);
+    setDoctorExportFeedback(null);
+
+    try {
+      await exportCasesReport(doctorJobs, doctorStatusSummary);
+      setDoctorExportFeedback({
+        type: "success",
+        text: "Descargamos tus casos. Revisa tu carpeta de descargas.",
+      });
+    } catch (error) {
+      console.error(error);
+      setDoctorExportFeedback({
+        type: "error",
+        text: "No pudimos exportar tus casos.",
+      });
+    } finally {
+      setIsExportingDoctorCases(false);
+    }
+  }
 
   async function handleAdvance(job: Job, nextStatus: JobStatus) {
     if (
@@ -401,6 +459,19 @@ export default function DashboardPage() {
         </p>
       )}
 
+      {isDoctor ? (
+        <div className="mt-6">
+          <DoctorExportPanel
+            summary={doctorStatusSummary}
+            isLoading={jobsLoading}
+            isExporting={isExportingDoctorCases}
+            hasJobs={doctorJobs.length > 0}
+            onExport={handleDoctorExportCases}
+            feedback={doctorExportFeedback}
+          />
+        </div>
+      ) : null}
+
       <section className="mt-8 grid gap-5 md:grid-cols-2">
         {statusOrder.map((status) => {
           const statusJobs = displayedJobsByStatus[status] ?? [];
@@ -612,6 +683,41 @@ function createSortMenuRefBuckets() {
     },
     {} as Record<JobStatus, HTMLDivElement | null>,
   );
+}
+
+function summarizeJobs(jobs: Job[]): StatusSummary {
+  const summary = createEmptySummary();
+  summary.total = jobs.length;
+
+  jobs.forEach((job) => {
+    if (job.status === JOB_STATUS.PENDING) {
+      summary.pending += 1;
+      return;
+    }
+    if (job.status === JOB_STATUS.IN_PROGRESS) {
+      summary.inProgress += 1;
+      return;
+    }
+    if (job.status === JOB_STATUS.READY) {
+      summary.ready += 1;
+      return;
+    }
+    if (job.status === JOB_STATUS.DELIVERED) {
+      summary.delivered += 1;
+    }
+  });
+
+  return summary;
+}
+
+function createEmptySummary(): StatusSummary {
+  return {
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    ready: 0,
+    delivered: 0,
+  };
 }
 
 function jobMatchesDoctor(

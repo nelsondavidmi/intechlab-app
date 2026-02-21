@@ -6,6 +6,7 @@ import {
   HeroSection,
   PricingSection,
   ServicesSection,
+  SiteFooter,
   SiteHeader,
 } from "@/components";
 
@@ -28,6 +29,7 @@ export default function Home() {
         <ContactSection />
       </main>
 
+      <SiteFooter />
       <FloatingWhatsapp />
     </>
   );
