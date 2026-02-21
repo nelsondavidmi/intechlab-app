@@ -78,12 +78,12 @@ export function HeroSection() {
       </div>
       <div className="flex-1">
         <div className="hero-frame">
-          <div className="hero-inner space-y-4 text-white">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="hero-inner space-y-4 text-[var(--foreground)]">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {galleryImages.map((item) => (
                 <figure
                   key={item.id}
-                  className="relative aspect-[4/3] overflow-hidden rounded-[32px] border border-white/10 bg-white/5"
+                  className="relative overflow-hidden rounded-[32px] border border-black/5 bg-white/80"
                 >
                   <img
                     src={item.src}
